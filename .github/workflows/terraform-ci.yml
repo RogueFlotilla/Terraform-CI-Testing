@@ -31,6 +31,7 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Run tfsec
+        id: tfsec-container-run
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
@@ -51,6 +52,22 @@ jobs:
       - name: Display Terraform report
         run: cat ${{ env.TF_DIR }}/tfsec-report.json
       # -----------------------
+
+      # ----- MANUALLY RUN TFSEC -----
+      - name: Manually run tfsec
+        id: tfsec-manual-run
+        run: |
+          cd ${{ env.TF_DIR }}
+          curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
+      
+      - name: List Terraform files
+        run: |
+          ls -la ${{ env.TF_DIR }}
+
+      - name: Display Terraform report
+        run: cat ${{ env.TF_DIR }}/tfsec-report.json
+      # ------------------------------
 
       - name: Check for Critical and High Vulnerabilities
         id: tfsec-count
