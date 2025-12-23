@@ -31,11 +31,11 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.3
+        uses: aquasecurity/tfsec-action@v1.1.5
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          # working_directory: ${{ env.TF_DIR }}
-          args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=${{ env.TF_DIR }}/tfsec-report.json
+          working_directory: ${{ env.TF_DIR }}
+          args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
           soft_fail: true
       
       - name: List Terraform files
