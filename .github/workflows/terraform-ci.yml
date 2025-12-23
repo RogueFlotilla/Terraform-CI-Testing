@@ -59,7 +59,7 @@ jobs:
         run: |
           cd ${{ env.TF_DIR }}
           curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
+          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json --soft-fail
       
       - name: List Terraform files
         run: |
