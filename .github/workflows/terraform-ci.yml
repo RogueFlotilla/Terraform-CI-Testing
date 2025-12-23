@@ -65,7 +65,7 @@ jobs:
           cd ${{ env.TF_DIR }}
 
           # Download the latest Linux amd64 release
-          curl -sSL -o tfsec https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64
+          curl -sSL -o tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64
           # curl -sSL -o tfsec.sig https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
           curl -sSL -o tfsec_checksums.txt https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec_checksums.txt
 
@@ -79,8 +79,8 @@ jobs:
           grep 'tfsec-linux-amd64' tfsec_checksums.txt | sha256sum -c -
 
           # Move binary
-          chmod +x tfsec-checkgen
-          sudo mv tfsec-checkgen /usr/local/bin/tfsec
+          chmod +x tfsec-linux-amd64
+          sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
 
           # Run tfsec
           tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report.json --soft-fail
