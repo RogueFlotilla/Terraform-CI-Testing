@@ -40,10 +40,10 @@ jobs:
         
       
       # ----- DEBUG STEPS -----
-      - name: Capture tfsec report
-        id: capture-report
-        run: |
-          echo "${{ steps.tfsec.outputs.tfsec-report.json }}" > ${{ env.TF_DIR }}/tfsec-report.json
+      # - name: Capture tfsec report
+      #   id: capture-report
+      #   run: |
+      #     echo "${{ steps.tfsec.outputs.tfsec-report.json }}" > ${{ env.TF_DIR }}/tfsec-report.json
 
       # - name: List Terraform files
       #   run: |
@@ -59,7 +59,7 @@ jobs:
         run: |
           cd ${{ env.TF_DIR }}
           curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report.json --soft-fail
+          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report --soft-fail
       
       - name: List Terraform files
         run: |
