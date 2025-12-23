@@ -130,3 +130,6 @@ jobs:
           output_format: cli,json
           output_file_path: console,chekov-results.json
           soft_fail: true
+      
+      - name: Print Chekov JSON report
+        run: cat ${{ env.TF_DIR }}/chekov-results.json
