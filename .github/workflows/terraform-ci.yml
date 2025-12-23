@@ -96,9 +96,6 @@ jobs:
           output_file_path: console,${{ env.TF_DIR }}/checkov-results.json
           soft_fail: true
       
-      - name: Print Chekov JSON report
-        run: cat ${{ env.TF_DIR }}/checkov-report.json
-      
       - name: Check for High Issues (Checkov)
         id: checkov-count
         run: |
