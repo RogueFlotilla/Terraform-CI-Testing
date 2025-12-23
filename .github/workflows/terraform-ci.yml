@@ -32,7 +32,8 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           working_directory: ${{ env.TF_DIR }}
-          tfsec_args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json --soft-fail
+          args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
+          soft-fail: true
 
       - name: Check for Critical and High Vulnerabilities
         id: tfsec-count
