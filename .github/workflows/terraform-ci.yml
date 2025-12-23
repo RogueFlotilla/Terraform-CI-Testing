@@ -65,20 +65,20 @@ jobs:
           pwd
           
           # Download the Linux amd64 release of tfsec 1.28.14
-          curl -sSL -o /tmp/tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64
-          curl -sSL -o /tmp/tfsec-linux-amd64.sig https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
-          curl -sSL -o /tmp/tfsec_checksums.txt https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec_checksums.txt
+          curl -sSL -o tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64
+          curl -sSL -o tfsec-linux-amd64.sig https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
+          curl -sSL -o tfsec_checksums.txt https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec_checksums.txt
 
           # Verify with GPG key
           gpg --keyserver keyserver.ubuntu.com --recv-keys D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE
-          gpg --verify /tmp/tfsec-linux-amd64.sig /tmp/tfsec-linux-amd64
+          gpg --verify tfsec-linux-amd64.sig tfsec-linux-amd64
 
           # Optional: verify SHA256 checksum
-          grep 'tfsec-linux-amd64' /tmp/tfsec_checksums.txt | sed 's| tfsec-linux-amd64| /tmp/tfsec-linux-amd64|' | sha256sum -c -
+          grep 'tfsec-linux-amd64' tfsec_checksums.txt | sed 's| tfsec-linux-amd64| tfsec-linux-amd64|' | sha256sum -c -
 
           # Move binary
-          chmod +x /tmp/tfsec-linux-amd64
-          sudo mv /tmp/tfsec-linux-amd64 /usr/local/bin/tfsec
+          chmod +x tfsec-linux-amd64
+          sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
 
           # Run tfsec
           tfsec . --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
