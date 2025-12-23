@@ -90,11 +90,11 @@ jobs:
       # ---------- CHECKOV ----------
       - name: Run Checkov
         uses: bridgecrewio/checkov-action@v12
+        continue-on-error: true
         with:
           directory: ${{ env.TF_DIR }}
           output_format: json
           output_file_path: ${{ env.TF_DIR }}/checkov-report.json
-          soft_fail: true
       
       - name: Check for High Issues (Checkov)
         id: checkov-count
