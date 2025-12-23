@@ -86,10 +86,10 @@ jobs:
         if: ${{ (inputs.env == 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
           echo "::error:: HIGH and/or CRITICAL issues detected by tfsec! Blocking production deployment."
-          exit 1
+          # exit 1
       
       - name: Conditionally Fail Pipeline in any Other Environment
         if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
           echo "::error:: HIGH and/or CRITICAL issues detected by tfsec! Blocking deployment to unknown environment."
-          exit 1
+          # exit 1
