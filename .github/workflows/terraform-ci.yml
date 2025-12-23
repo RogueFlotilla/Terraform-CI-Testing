@@ -32,12 +32,11 @@ jobs:
       
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
-        continue-on-error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           working_directory: ${{ env.TF_DIR }}
           args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
-          # soft_fail: true
+          soft_fail: true
         
       
       # ----- DEBUG STEPS -----
@@ -60,7 +59,7 @@ jobs:
         run: |
           cd ${{ env.TF_DIR }}
           curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json --soft-fail
+          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report.json --soft-fail
       
       - name: List Terraform files
         run: |
@@ -70,7 +69,7 @@ jobs:
         run: cat ${{ env.TF_DIR }}/tfsec-report.json
       # ------------------------------
 
-      - name: Check for Critical and High Vulnerabilities
+      - name: Check for Critical and High Issues
         id: tfsec-count
         run: |
           HIGH=$(jq '[.results[] | select(.severity=="HIGH")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
@@ -82,16 +81,16 @@ jobs:
       - name: Conditionally Warn Pipeline in Dev or Test Environments
         if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
-          echo "::warning:: HIGH and/or CRITICAL issues detected by tfsec! Deployment permitted to dev/test environments."
+          echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Deployment permitted to dev/test environment."
 
       - name: Conditionally Fail Pipeline in Prod Environment
         if: ${{ (inputs.env == 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
-          echo "::error:: HIGH and/or CRITICAL issues detected by tfsec! Blocking production deployment."
+          echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking production deployment."
           exit 1
       
       - name: Conditionally Fail Pipeline in any Other Environment
         if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
-          echo "::error:: HIGH and/or CRITICAL issues detected by tfsec! Blocking deployment to unknown environment."
+          echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
           exit 1
