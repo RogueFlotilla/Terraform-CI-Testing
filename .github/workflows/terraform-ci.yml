@@ -53,12 +53,38 @@ jobs:
       # -----------------------
 
       # ----- MANUALLY RUN TFSEC -----
-      - name: Manually run tfsec
-        id: tfsec-manual-run
+      # - name: Manually run tfsec
+      #   id: tfsec-manual-run
+      #   run: |
+      #     cd ${{ env.TF_DIR }}
+      #     curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+      #     tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report --soft-fail
+
+      - name: Install tfsec with SHA256 + GPG verification
         run: |
           cd ${{ env.TF_DIR }}
-          curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report --soft-fail
+
+          # Download the latest Linux amd64 release
+          curl -sSL -o tfsec.tar.gz https://github.com/aquasecurity/tfsec/releases/v1.28.14/download/tfsec-linux-amd64.tar.gz
+          curl -sSL -o tfsec.tar.gz.sig https://github.com/aquasecurity/tfsec/releases/v1.28.14/download/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
+          curl -sSL -o tfsec_checksums.txt https://github.com/aquasecurity/tfsec/releases/v1.28.14/download/tfsec_checksums.txt
+
+          # Optional: Import the tfsec public GPG key
+          gpg --keyserver keyserver.ubuntu.com --recv-keys D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE
+
+          # Verify GPG signature
+          gpg --verify tfsec.tar.gz.sig tfsec.tar.gz
+
+          # Optional: verify SHA256 checksum
+          grep 'tfsec-linux-amd64.tar.gz' tfsec_checksums.txt | sha256sum -c -
+
+          # Extract binary
+          sudo tar -xzf tfsec.tar.gz -C /usr/local/bin
+
+          # Run tfsec
+          tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report.json --soft-fail
+
+
       
       - name: List Terraform files
         run: |
