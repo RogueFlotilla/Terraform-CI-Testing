@@ -37,8 +37,7 @@ jobs:
           working_directory: ${{ env.TF_DIR }}
           args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
           soft_fail: true
-        
-      
+         
       # ----- DEBUG STEPS -----
       # - name: Capture tfsec report
       #   id: capture-report
@@ -72,9 +71,13 @@ jobs:
       - name: Check for Critical and High Issues
         id: tfsec-count
         run: |
+          LOW=$(jq '[.results[] | select(.severity=="LOW")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
+          MEDIUM=$(jq '[.results[] | select(.severity=="MEDIUM")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
           HIGH=$(jq '[.results[] | select(.severity=="HIGH")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
           CRITICAL=$(jq '[.results[] | select(.severity=="CRITICAL")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
 
+          echo "low=$LOW" >> $GITHUB_OUTPUT
+          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
           echo "high=$HIGH" >> $GITHUB_OUTPUT
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
       
@@ -90,7 +93,7 @@ jobs:
           exit 1
       
       - name: Conditionally Fail Pipeline in any Other Environment
-        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
+        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.tfsec-count.outputs.low) > 0 || fromJSON(steps.tfsec-count.outputs.medium) > 0 || fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
           exit 1
