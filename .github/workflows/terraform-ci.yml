@@ -87,8 +87,8 @@ jobs:
       #   run: |
       #     ls -la ${{ env.TF_DIR }}
 
-      - name: Display Terraform report
-        run: cat ${{ env.TF_DIR }}/tfsec-report.lovely
+      # - name: Display Terraform report
+      #   run: cat ${{ env.TF_DIR }}/tfsec-report.lovely
       # ------------------------------
 
       - name: Check for Critical and High Issues
