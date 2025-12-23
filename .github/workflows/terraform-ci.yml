@@ -123,4 +123,10 @@ jobs:
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
           exit 1
       
-      # - name: Run Chekov
+      - name: Run Chekov
+        uses: bridgecrewio/chekov-action@v12
+        with:
+          directory: ${{ env.TF_DIR }}
+          output_format: cli,json
+          output_file_path: console,chekov-results.json
+          soft_fail: true
