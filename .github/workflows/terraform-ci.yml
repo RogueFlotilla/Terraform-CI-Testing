@@ -32,12 +32,13 @@ jobs:
       
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
+        continue_on_error: true
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           working_directory: ${{ env.TF_DIR }}
           args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
-          soft_fail: false
-        continue_on_error: true
+          # soft_fail: true
+        
       
       # ----- DEBUG STEPS -----
       # - name: Capture tfsec report
