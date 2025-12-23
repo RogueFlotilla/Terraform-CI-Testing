@@ -38,6 +38,7 @@ jobs:
           args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
           soft_fail: true
       
+      # ----- DEBUG STEPS -----
       - name: Capture tfsec report
         id: capture-report
         run: |
@@ -46,6 +47,10 @@ jobs:
       - name: List Terraform files
         run: |
           ls -la ${{ env.TF_DIR }}
+
+      - name: Display Terraform report
+        run: cat ${{ env.TF_DIR }}/tfsec-report.json
+      # -----------------------
 
       - name: Check for Critical and High Vulnerabilities
         id: tfsec-count
