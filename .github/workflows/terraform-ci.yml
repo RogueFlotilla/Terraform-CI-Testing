@@ -76,7 +76,7 @@ jobs:
 
           # Move binary
           chmod +x /tmp/tfsec-linux-amd64
-          sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
+          sudo mv /tmp/tfsec-linux-amd64 /usr/local/bin/tfsec
 
           # Run tfsec
           tfsec . --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report --soft-fail
