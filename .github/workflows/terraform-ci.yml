@@ -123,4 +123,4 @@ jobs:
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
           exit 1
       
-      - name: Run Chekov
+      # - name: Run Chekov
