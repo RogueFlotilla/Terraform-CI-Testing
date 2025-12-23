@@ -128,7 +128,7 @@ jobs:
         with:
           directory: ${{ env.TF_DIR }}
           output_format: cli,json
-          output_file_path: console,chekov-results.json
+          output_file_path: console,${{ env.TF_DIR }}/chekov-results.json
           soft_fail: true
       
       - name: Print Chekov JSON report
