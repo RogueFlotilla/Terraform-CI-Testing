@@ -124,7 +124,7 @@ jobs:
           exit 1
       
       - name: Run Chekov
-        uses: bridgecrewio/chekov-action@v12
+        uses: bridgecrewio/checkov-action@v12
         with:
           directory: ${{ env.TF_DIR }}
           output_format: cli,json
