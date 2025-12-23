@@ -81,7 +81,7 @@ jobs:
           sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
 
           # Run tfsec
-          tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
+          tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
       
       # - name: List Terraform files
       #   run: |
