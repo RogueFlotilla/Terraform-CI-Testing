@@ -30,13 +30,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          working_directory: ${{ env.TF_DIR }}
-          args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
-          soft_fail: true
+      # - name: Run tfsec
+      #   uses: aquasecurity/tfsec-action@v1.0.3
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     working_directory: ${{ env.TF_DIR }}
+      #     args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
+      #     soft_fail: true
          
       # ----- DEBUG STEPS -----
       # - name: Capture tfsec report
@@ -81,12 +81,12 @@ jobs:
           # Run tfsec
           tfsec . --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
       
-      - name: List Terraform files
-        run: |
-          ls -la ${{ env.TF_DIR }}
+      # - name: List Terraform files
+      #   run: |
+      #     ls -la ${{ env.TF_DIR }}
 
       - name: Display Terraform report
-        run: cat ${{ env.TF_DIR }}/tfsec-report.json
+        run: cat ${{ env.TF_DIR }}/tfsec-report.lovely
       # ------------------------------
 
       - name: Check for Critical and High Issues
