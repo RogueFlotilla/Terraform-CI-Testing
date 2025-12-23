@@ -8,7 +8,7 @@ provider "aws" {
 }
 
 #-------------------- HIGH --------------------
-# resource "aws_s3_bucket" "bad_bucket" {
-#   bucket = "tfsec-test-bucket"
-#   acl    = "public-read"
-# }
+resource "aws_s3_bucket" "bad_bucket" {
+  bucket = "tfsec-test-bucket"
+  acl    = "public-read"
+}
