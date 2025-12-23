@@ -29,38 +29,10 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      
-      # - name: Run tfsec
-      #   uses: aquasecurity/tfsec-action@v1.0.3
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     working_directory: ${{ env.TF_DIR }}
-      #     args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
-      #     soft_fail: true
-         
-      # ----- DEBUG STEPS -----
-      # - name: Capture tfsec report
-      #   id: capture-report
-      #   run: |
-      #     echo "${{ steps.tfsec.outputs.tfsec-report.json }}" > ${{ env.TF_DIR }}/tfsec-report.json
 
-      # - name: List Terraform files
-      #   run: |
-      #     ls -la ${{ env.TF_DIR }}
-
-      # - name: Display Terraform report
-      #   run: cat ${{ env.TF_DIR }}/tfsec-report.json
-      # -----------------------
-
-      # ----- MANUALLY RUN TFSEC -----
-      # - name: Manually run tfsec
-      #   id: tfsec-manual-run
-      #   run: |
-      #     cd ${{ env.TF_DIR }}
-      #     curl -sSL https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-      #     tfsec . --tfvars-file=env/${{ inputs.env }}.tfvars --format=lovely,json --out=tfsec-report --soft-fail
-
+      # ----------- TFSEC -----------
       - name: Install tfsec with SHA256 + GPG verification
+        # tfsec GitHub Action method did not permit passing of results to environment-based logic
         run: |
           TFSEC_TAG=v1.28.14
           
@@ -82,16 +54,8 @@ jobs:
 
           # Run tfsec
           tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
-      
-      # - name: List Terraform files
-      #   run: |
-      #     ls -la ${{ env.TF_DIR }}
 
-      # - name: Display Terraform report
-      #   run: cat ${{ env.TF_DIR }}/tfsec-report.lovely
-      # ------------------------------
-
-      - name: Check for Critical and High Issues
+      - name: Check for Critical and High Issues (tfsec)
         id: tfsec-count
         run: |
           LOW=$(jq '[.results[] | select(.severity=="LOW")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
@@ -123,13 +87,47 @@ jobs:
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
           exit 1
       
-      - name: Run Chekov
+      # ---------- CHECKOV ----------
+      - name: Run Checkov
         uses: bridgecrewio/checkov-action@v12
         with:
           directory: ${{ env.TF_DIR }}
           output_format: cli,json
-          output_file_path: console,${{ env.TF_DIR }}/chekov-results.json
+          output_file_path: console,${{ env.TF_DIR }}/checkov-results.json
           soft_fail: true
       
       - name: Print Chekov JSON report
-        run: cat ${{ env.TF_DIR }}/chekov-results.json
+        run: cat ${{ env.TF_DIR }}/checkov-report.json
+      
+      - name: Check for High Issues (Checkov)
+        id: checkov-count
+        run: |
+          INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' ${{ env.TF_DIR }}/checkov-report.json)
+          LOW=$(jq '[.results.failed_checks[] | select(.severity=="LOW")] | length' ${{ env.TF_DIR }}/checkov-report.json)
+          MEDIUM=$(jq '[.results.failed_checks[] | select(.severity=="MEDIUM")] | length' ${{ env.TF_DIR }}/checkov-report.json)
+          HIGH=$(jq '[.results.failed_checks[] | select(.severity=="HIGH")] | length' ${{ env.TF_DIR }}/checkov-report.json)
+          TOTAL=$LOW+$MEDIUM+$HIGH
+
+          echo "info=$INFO" >> $GITHUB_OUTPUT
+          echo "low=$LOW" >> $GITHUB_OUTPUT
+          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+          echo "high=$HIGH" >> $GITHUB_OUTPUT
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+      
+      - name: Conditionally Warn Pipeline in Dev or Test Environments (Checkov)
+        if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (fromJSON(steps.checkov-count.outputs.high) > 0 || fromJSON(steps.checkov-count.outputs.critical) > 0) }}
+        run: |
+          echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by Checkov! Deployment permitted to dev/test environment."
+
+      - name: Conditionally Fail Pipeline in Prod Environment (Checkov)
+        if: ${{ (inputs.env == 'prod') && (fromJSON(steps.checkov-count.outputs.high) > 0 || fromJSON(steps.checkov-count.outputs.critical) > 0) }}
+        run: |
+          echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by Checkov! Blocking production deployment."
+          exit 1
+      
+      - name: Conditionally Fail Pipeline in any Other Environments (Checkov)
+        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.checkov-count.outputs.total) > 0) }}
+        run: |
+          echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by Checkov! Blocking deployment to unknown environment."
+          exit 1
+      # -----------------------------
