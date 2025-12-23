@@ -62,6 +62,8 @@ jobs:
 
       - name: Install tfsec with SHA256 + GPG verification
         run: |
+          pwd
+          
           # Download the Linux amd64 release of tfsec 1.28.14
           curl -sSL -o /tmp/tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64
           curl -sSL -o /tmp/tfsec-linux-amd64.sig https://github.com/aquasecurity/tfsec/releases/download/v1.28.14/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
