@@ -40,10 +40,10 @@ jobs:
         
       
       # ----- DEBUG STEPS -----
-      # - name: Capture tfsec report
-      #   id: capture-report
-      #   run: |
-      #     echo "${{ steps.tfsec.outputs.tfsec-report.json }}" > ${{ env.TF_DIR }}/tfsec-report.json
+      - name: Capture tfsec report
+        id: capture-report
+        run: |
+          echo "${{ steps.tfsec.outputs.tfsec-report.json }}" > ${{ env.TF_DIR }}/tfsec-report.json
 
       # - name: List Terraform files
       #   run: |
