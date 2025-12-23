@@ -44,18 +44,18 @@ jobs:
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
       
       - name: Conditionally Fail Pipeline Only in Prod Environment
-        if: ${{ (inputs.env == "prod") && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
+        if: ${{ (inputs.env == 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
           echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking production deployment."
           exit 1
       
       - name: Conditionally Warn Pipeline in Dev or Test Environments
-        if: ${{ (inputs.env == "dev" || inputs.env == "tst") && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
+        if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
           echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Deployment permitted to dev/test environments."
       
       - name: Conditionally Fail Pipeline in any Other Environment
-        if: ${{ (inputs.env != "dev" && inputs.env != "tst" && inputs.env != "prod") && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
+        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
           echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
           exit 1
