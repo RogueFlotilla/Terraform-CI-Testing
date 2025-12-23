@@ -98,7 +98,7 @@ jobs:
           MEDIUM=$(jq '[.results[] | select(.severity=="MEDIUM")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
           HIGH=$(jq '[.results[] | select(.severity=="HIGH")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
           CRITICAL=$(jq '[.results[] | select(.severity=="CRITICAL")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
-          TOTAL=$LOW + $MEDIUM + $HIGH + $CRITICAL
+          TOTAL=$LOW+$MEDIUM+$HIGH+$CRITICAL
 
           echo "low=$LOW" >> $GITHUB_OUTPUT
           echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
