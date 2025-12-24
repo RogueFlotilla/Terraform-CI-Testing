@@ -114,7 +114,8 @@ jobs:
         id: checkov-count
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
           # { # Try to count by severity
-          if jq -e '.results.failed_checks[] | has("severity")' report.json > /dev/null; then
+          # if jq -e '.results.failed_checks[] | has("severity")' report.json > /dev/null; then
+          if jq -e '[.results.failed_checks[] | has("severity")] | all' ${{ env.TF_DIR }}/checkov-report.json >/dev/null; then
             INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' ${{ env.TF_DIR }}/checkov-report.json)
             LOW=$(jq '[.results.failed_checks[] | select(.severity=="LOW")] | length' ${{ env.TF_DIR }}/checkov-report.json)
             MEDIUM=$(jq '[.results.failed_checks[] | select(.severity=="MEDIUM")] | length' ${{ env.TF_DIR }}/checkov-report.json)
