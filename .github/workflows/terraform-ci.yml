@@ -71,6 +71,14 @@ jobs:
           echo "high=$HIGH" >> $GITHUB_OUTPUT
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
+    
+      - name: DEBUG (tfsec) Print variables
+        run: |
+          echo "low ${{ steps.tfsec-count.outputs.low }}"
+          echo "medium ${{ steps.tfsec-count.outputs.medium }}"
+          echo "high ${{ steps.tfsec-count.outputs.high }}"
+          echo "critical ${{ steps.tfsec-count.outputs.critical }}"
+          echo "total ${{ steps.tfsec-count.outputs.total }}"
       
       - name: (tfsec) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
@@ -132,6 +140,16 @@ jobs:
           echo "pass=$(jq '.summary.passed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
           echo "fail=$(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
           }
+
+      - name: DEBUG (Checkov) Print variables
+        run: |
+          echo "info ${{ steps.checkov-count.outputs.info }}"
+          echo "low ${{ steps.checkov-count.outputs.low }}"
+          echo "medium ${{ steps.checkov-count.outputs.medium }}"
+          echo "high ${{ steps.checkov-count.outputs.high }}"
+          echo "total ${{ steps.checkov-count.outputs.high }}"
+          echo "pass ${{ steps.checkov-count.outputs.pass }}"
+          echo "fail ${{ steps.checkov-count.outputs.fail }}"
       
       - name: (Checkov) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
