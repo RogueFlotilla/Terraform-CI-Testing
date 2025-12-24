@@ -24,8 +24,10 @@ jobs:
         uses: actions/checkout@v4
 
       # ---------- TFSEC ----------
-      - name: Install tfsec with SHA256 + GPG verification
-        # tfsec GitHub Action method did not permit passing of results to environment-based logic
+      - name: Install tfsec with SHA256 & GPG Verification and Run
+        # Was unable to determine a method for passing results from GitHub Action (aquasecurity/tfsec-action@v1.0.3) to future jobs
+        # This manual run is intended to generate JSON output for logic to conditionally warn or fail depending on environment
+        if: always()
         run: |
           TFSEC_TAG=v1.28.14
           
@@ -48,9 +50,9 @@ jobs:
           # Run tfsec
           tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
 
-      - name: Check for Critical and High Issues (tfsec)
+      - name: (tfsec) Count Findings by Severity
         id: tfsec-count
-        run: |
+        run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
           LOW=$(jq '[.results[] | select(.severity=="LOW")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
           MEDIUM=$(jq '[.results[] | select(.severity=="MEDIUM")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
           HIGH=$(jq '[.results[] | select(.severity=="HIGH")] | length' ${{ env.TF_DIR }}/tfsec-report.json)
@@ -63,18 +65,21 @@ jobs:
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       
-      - name: Conditionally Warn Pipeline in Dev or Test Environments (tfsec)
+      - name: (tfsec) Conditionally Warn Pipeline in Development or Test Environments
+        # Intentionally declaring dev and test so any future environments fail by default
         if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
           echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Deployment permitted to dev/test environment."
 
-      - name: Conditionally Fail Pipeline in Prod Environment (tfsec)
+      - name: (tfsec) Conditionally Fail Pipeline in Production Environment
+        # High and/or Critical vulnerabilities will block deployment to production
         if: ${{ (inputs.env == 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
         run: |
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking production deployment."
           exit 1
       
-      - name: Conditionally Fail Pipeline in any Other Environments (tfsec)
+      - name: (tfsec) Conditionally Fail Pipeline in any Other Environments
+        # Creates a fail by default condition if any vulnerabilities are detected for environments not explicitly listed
         if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.tfsec-count.outputs.total) > 0) }}
         run: |
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
@@ -92,7 +97,7 @@ jobs:
       
       - name: (Checkov) Count Findings by Severity
         id: checkov-count
-        run: |
+        run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
           { # Try to count by severity
           INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' ${{ env.TF_DIR }}/checkov-report.json)
           LOW=$(jq '[.results.failed_checks[] | select(.severity=="LOW")] | length' ${{ env.TF_DIR }}/checkov-report.json)
