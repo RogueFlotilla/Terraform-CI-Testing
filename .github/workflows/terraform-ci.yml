@@ -146,6 +146,8 @@ jobs:
             echo "fail=$(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
 
             echo "::notice:: I used pass/fail!"
+            echo "fails  $(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
+            echo "passes $(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
           # }
           fi
 
