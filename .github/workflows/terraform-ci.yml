@@ -74,20 +74,20 @@ jobs:
       
       - name: (tfsec) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
-        if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
+        if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (steps.tfsec-count.outputs.high > 0 || steps.tfsec-count.outputs.critical > 0) }}
         run: |
           echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Deployment permitted to dev/test environment."
 
       - name: (tfsec) Conditionally Fail Pipeline in Production Environment
         # High and/or Critical vulnerabilities will block deployment to production
-        if: ${{ (inputs.env == 'prod') && (fromJSON(steps.tfsec-count.outputs.high) > 0 || fromJSON(steps.tfsec-count.outputs.critical) > 0) }}
+        if: ${{ (inputs.env == 'prod') && (steps.tfsec-count.outputs.high > 0 || steps.tfsec-count.outputs.critical > 0) }}
         run: |
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking production deployment."
           exit 1
       
       - name: (tfsec) Conditionally Fail Pipeline in any Other Environments
         # Creates a fail by default condition if any vulnerabilities are detected for environments not explicitly listed
-        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.tfsec-count.outputs.total) > 0) }}
+        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (steps.tfsec-count.outputs.total > 0) }}
         run: |
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
           exit 1
@@ -135,20 +135,20 @@ jobs:
       
       - name: (Checkov) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
-        if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (fromJSON(steps.checkov-count.outputs.high) > 0 || fromJSON(steps.checkov-count.outputs.fail) > 0) }}
+        if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (steps.checkov-count.outputs.high > 0 || steps.checkov-count.outputs.fail > 0) }}
         run: |
           echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by Checkov! Deployment permitted to dev/test environment."
 
       - name: (Checkov) Conditionally Fail Pipeline in Production Environment
         # High vulnerabilities (or failed checks) will block deployment to production
-        if: ${{ (inputs.env == 'prod') && (fromJSON(steps.checkov-count.outputs.high) > 0 || fromJSON(steps.checkov-count.outputs.fail) > 0) }}
+        if: ${{ (inputs.env == 'prod') && (steps.checkov-count.outputs.high > 0 || steps.checkov-count.outputs.fail > 0) }}
         run: |
           echo "::error:: HIGH vulnerabilities or FAILED checks detected by Checkov! Blocking production deployment."
           exit 1
       
       - name: (Checkov) Conditionally Fail Pipeline in any Other Environments
         # Creates a fail by default condition if any vulnerabilities are detected for environments not explicitly listed
-        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (fromJSON(steps.checkov-count.outputs.total) > 0 || fromJSON(steps.checkov-count.outputs.fail) > 0) }}
+        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (steps.checkov-count.outputs.total > 0 || steps.checkov-count.outputs.fail > 0) }}
         run: |
           echo "::error:: Vulnerabilities or FAILED checks detected by Checkov! Blocking deployment to unknown environment."
           exit 1
