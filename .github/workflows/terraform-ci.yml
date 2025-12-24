@@ -142,12 +142,12 @@ jobs:
             echo "medium=" >> $GITHUB_OUTPUT        # null
             echo "high=" >> $GITHUB_OUTPUT          # null
             echo "total=" >> $GITHUB_OUTPUT         # null
-            echo "pass=$(jq '.summary.passed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
-            echo "fail=$(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
+            echo "pass=$(jq '.results.summary.passed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
+            echo "fail=$(jq '.results..summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
 
             echo "::notice:: I used pass/fail!"
-            echo "fails  $(jq -r '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
-            echo "passes $(jq -r '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
+            echo "fails  $(jq -r '.results.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
+            echo "passes $(jq -r '.results.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
           # }
           fi
 
