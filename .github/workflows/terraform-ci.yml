@@ -9,13 +9,6 @@ on:
       tf_dir:
         required: true
         type: string
-    secrets:
-      AWS_MANAGEMENT_ROLE_ARN:
-        required: false
-      AWS_TARGET_ROLE_ARN:
-        required: false
-      GITLEAKS_LICENSE:
-        required: false
 
 jobs:
   terraform_ci_test:
@@ -131,7 +124,8 @@ jobs:
       - name: (Checkov) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
         if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (fromJSON(steps.checkov-count.outputs.high) > 0 || fromJSON(steps.checkov-count.outputs.fail) > 0) }}
-        run: echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by Checkov! Deployment permitted to dev/test environment."
+        run: |
+          echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by Checkov! Deployment permitted to dev/test environment."
 
       - name: (Checkov) Conditionally Fail Pipeline in Production Environment
         # High vulnerabilities (or failed checks) will block deployment to production
