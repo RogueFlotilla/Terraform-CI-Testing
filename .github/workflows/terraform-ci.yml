@@ -8,7 +8,14 @@ on:
         type: string
       tf_dir:
         required: true
-        type: string
+        type: 
+    secrets:
+      AWS_MANAGEMENT_ROLE_ARN:
+        required: false
+      AWS_TARGET_ROLE_ARN:
+        required: false
+      GITLEAKS_LICENSE:
+        required: false
 
 jobs:
   terraform_ci_test:
