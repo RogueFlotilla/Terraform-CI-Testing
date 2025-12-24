@@ -130,6 +130,8 @@ jobs:
             echo "pass=" >> $GITHUB_OUTPUT          # null
             echo "fail=" >> $GITHUB_OUTPUT          # null
 
+            echo "::notice:: I used the severity!"
+
           # } || { # Except count by pass/fail if API key not provided
           else
             echo "::warning:: Checkov severity scoring may be missing. Checkov analysis falling back to simple pass/fail."
@@ -142,6 +144,8 @@ jobs:
             echo "total=" >> $GITHUB_OUTPUT         # null
             echo "pass=$(jq '.summary.passed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
             echo "fail=$(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
+
+            echo "::notice:: I used pass/fail!"
           # }
           fi
 
