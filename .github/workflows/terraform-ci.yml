@@ -113,33 +113,36 @@ jobs:
       - name: (Checkov) Count Findings by Severity
         id: checkov-count
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
-          { # Try to count by severity
-          INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' ${{ env.TF_DIR }}/checkov-report.json)
-          LOW=$(jq '[.results.failed_checks[] | select(.severity=="LOW")] | length' ${{ env.TF_DIR }}/checkov-report.json)
-          MEDIUM=$(jq '[.results.failed_checks[] | select(.severity=="MEDIUM")] | length' ${{ env.TF_DIR }}/checkov-report.json)
-          HIGH=$(jq '[.results.failed_checks[] | select(.severity=="HIGH")] | length' ${{ env.TF_DIR }}/checkov-report.json)
-          TOTAL=$((LOW + MEDIUM + HIGH))
+          # { # Try to count by severity
+          if jq -e '.results.failed_checks[] | has("severity")' report.json > /dev/null; then
+            INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' ${{ env.TF_DIR }}/checkov-report.json)
+            LOW=$(jq '[.results.failed_checks[] | select(.severity=="LOW")] | length' ${{ env.TF_DIR }}/checkov-report.json)
+            MEDIUM=$(jq '[.results.failed_checks[] | select(.severity=="MEDIUM")] | length' ${{ env.TF_DIR }}/checkov-report.json)
+            HIGH=$(jq '[.results.failed_checks[] | select(.severity=="HIGH")] | length' ${{ env.TF_DIR }}/checkov-report.json)
+            TOTAL=$((LOW + MEDIUM + HIGH))
 
-          echo "info=$INFO" >> $GITHUB_OUTPUT
-          echo "low=$LOW" >> $GITHUB_OUTPUT
-          echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
-          echo "high=$HIGH" >> $GITHUB_OUTPUT
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "pass=" >> $GITHUB_OUTPUT          # null
-          echo "fail=" >> $GITHUB_OUTPUT          # null
+            echo "info=$INFO" >> $GITHUB_OUTPUT
+            echo "low=$LOW" >> $GITHUB_OUTPUT
+            echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
+            echo "high=$HIGH" >> $GITHUB_OUTPUT
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+            echo "pass=" >> $GITHUB_OUTPUT          # null
+            echo "fail=" >> $GITHUB_OUTPUT          # null
 
-          } || { # Except count by pass/fail if API key not provided
-          echo "::warning:: Checkov severity scoring may be missing. Checkov analysis falling back to simple pass/fail."
-          echo "::notice:: A Checkov API key was likely not provided, resulting in Checkov severity scoring of null."
+          # } || { # Except count by pass/fail if API key not provided
+          else
+            echo "::warning:: Checkov severity scoring may be missing. Checkov analysis falling back to simple pass/fail."
+            echo "::notice:: A Checkov API key was likely not provided, resulting in Checkov severity scoring of null."
 
-          echo "info=" >> $GITHUB_OUTPUT          # null
-          echo "low=" >> $GITHUB_OUTPUT           # null
-          echo "medium=" >> $GITHUB_OUTPUT        # null
-          echo "high=" >> $GITHUB_OUTPUT          # null
-          echo "total=" >> $GITHUB_OUTPUT         # null
-          echo "pass=$(jq '.summary.passed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
-          echo "fail=$(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
-          }
+            echo "info=" >> $GITHUB_OUTPUT          # null
+            echo "low=" >> $GITHUB_OUTPUT           # null
+            echo "medium=" >> $GITHUB_OUTPUT        # null
+            echo "high=" >> $GITHUB_OUTPUT          # null
+            echo "total=" >> $GITHUB_OUTPUT         # null
+            echo "pass=$(jq '.summary.passed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
+            echo "fail=$(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
+          # }
+          fi
 
       - name: DEBUG (Checkov) Print variables
         run: |
@@ -147,7 +150,7 @@ jobs:
           echo "low ${{ steps.checkov-count.outputs.low }}"
           echo "medium ${{ steps.checkov-count.outputs.medium }}"
           echo "high ${{ steps.checkov-count.outputs.high }}"
-          echo "total ${{ steps.checkov-count.outputs.high }}"
+          echo "total ${{ steps.checkov-count.outputs.total }}"
           echo "pass ${{ steps.checkov-count.outputs.pass }}"
           echo "fail ${{ steps.checkov-count.outputs.fail }}"
       
