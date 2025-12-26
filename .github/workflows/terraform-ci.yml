@@ -33,8 +33,8 @@ jobs:
       - name: Create Report Directories
         if: always() # Needed if prior step fail to ensure vulnerability scans still run
         run: |
-          mkdir ${{ TF_DIR }}/tfsec-report
-          mkdir ${{ TF_DIR }}/checkov-report
+          mkdir ${{ env.TF_DIR }}/tfsec-report
+          mkdir ${{ env.TF_DIR }}/checkov-report
 
       # ---------- TFSEC ----------
       - name: Install tfsec with SHA256 & GPG Verification and Run
