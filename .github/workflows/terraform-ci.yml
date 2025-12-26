@@ -37,31 +37,33 @@ jobs:
         if: always() # Run tfsec even if prior job steps failed
         env:
           TFSEC_TAG: v1.28.14
+          TFSEC_BINARY: tfsec-linux-amd64
+          TFSEC_KEY_NAME: D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE
         run: |          
           # Download binary for tfsec tagged version pinned by variable
-          curl -sSL -o tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64
-          curl -sSL -o tfsec-linux-amd64.sig https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
+          curl -sSL -o $TFSEC_BINARY https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/$TFSEC_BINARY
+          curl -sSL -o $TFSEC_BINARY.sig https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/$TFSEC_BINARY.$TFSEC_KEY_NAME.sig
           curl -sSL -o tfsec_checksums.txt https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec_checksums.txt
           
           # Verify SHA256 checksum
-          grep 'tfsec-linux-amd64' tfsec_checksums.txt | sed 's| tfsec-linux-amd64| tfsec-linux-amd64|' | sha256sum -c -
+          grep '$TFSEC_BINARY' tfsec_checksums.txt | sed 's| $TFSEC_BINARY| $TFSEC_BINARY|' | sha256sum -c -
 
           # Verify GPG Signature
-          gpg --keyserver keyserver.ubuntu.com --recv-keys D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE
-          gpg --verify tfsec-linux-amd64.sig tfsec-linux-amd64
+          gpg --keyserver keyserver.ubuntu.com --recv-keys $TFSEC_KEY_NAME
+          gpg --verify $TFSEC_BINARY.sig $TFSEC_BINARY
 
           # Move binary
-          chmod +x tfsec-linux-amd64
-          sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
+          chmod +x $TFSEC_BINARY
+          sudo mv $TFSEC_BINARY /usr/local/bin/tfsec
 
           # Run tfsec
           tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
 
       - name: (tfsec) Count Findings by Severity
         id: tfsec-count
-        run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
-          TFSEC_REPORT=${{ env.TF_DIR }}/tfsec-report.json
-          
+        env:
+          TFSEC_REPORT: ${{ env.TF_DIR }}/tfsec-report.json
+        run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates          
           LOW=$(jq '[.results[] | select(.severity=="LOW")] | length' $TFSEC_REPORT)
           MEDIUM=$(jq '[.results[] | select(.severity=="MEDIUM")] | length' $TFSEC_REPORT)
           HIGH=$(jq '[.results[] | select(.severity=="HIGH")] | length' $TFSEC_REPORT)
@@ -107,9 +109,9 @@ jobs:
       
       - name: (Checkov) Count Findings by Severity
         id: checkov-count
-        run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
-          CHECKOV_REPORT=${{ env.TF_DIR }}/checkov-report/results_json.json
-                   
+        env:
+          CHECKOV_REPORT: ${{ env.TF_DIR }}/checkov-report/results_json.json
+        run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates                   
           # Count by severity (if API key provided)
           if jq -e '.results.failed_checks[] | select(.severity != null)' $CHECKOV_REPORT >/dev/null; then 
             INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' $CHECKOV_REPORT)
