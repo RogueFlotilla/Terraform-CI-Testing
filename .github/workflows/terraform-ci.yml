@@ -108,7 +108,7 @@ jobs:
         with:
           api-key: "" # Pull from secrets manager if available
           directory: ${{ env.TF_DIR }}
-          output_format: json,csv
+          output_format: json # Cannot output JSON and CSV at same time
           output_file_path: ${{ env.TF_DIR }}/checkov-report
       
       - name: (Checkov) Count Findings by Severity
@@ -166,6 +166,30 @@ jobs:
           exit 1
 
       # ---------- ARTIFACT UPLOAD ----------
+      - name: Generate Checkov CSV
+        if: always()
+        run: |
+          jq -r '
+            ["check_id","bc_check_id","check_name","result","severity","file_path","resource","start_line","end_line","evaluated_keys","guideline"], 
+            (
+              (.results.failed_checks[] + .results.passed_checks[]?) |
+              [
+                .check_id,
+                .bc_check_id,
+                .check_name,
+                .check_result.result,
+                (.severity // ""),
+                .file_path,
+                .resource,
+                (.file_line_range[0] // ""),
+                (.file_line_range[1] // ""),
+                (.check_result.evaluated_keys | join(";")),
+                (.guideline // "")
+              ]
+            ) 
+            | @csv
+          ' checkov-report/results_json.json > checkov-report/results_human.csv
+
       - name: Set Timestamp
         if: always() # upload artifacts even if some job steps fail
         run: echo "TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_ENV
