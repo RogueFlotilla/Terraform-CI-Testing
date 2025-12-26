@@ -99,16 +99,19 @@ jobs:
         uses: bridgecrewio/checkov-action@v12
         if: always() # Ensure Checkov runs even if tfsec fails
         continue-on-error: true
+        env:
+          BC_API_KEY: "" # Pull from secrets manager if available
+          BC_API_URL: ""
         with:
           directory: ${{ env.TF_DIR }}
           output_format: json
           output_file_path: ${{ env.TF_DIR }}/checkov-report
       
       - name: (Checkov) Count Findings by Severity
-        id: checkov-count 
+        id: checkov-count
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
           CHECKOV_REPORT=${{ env.TF_DIR }}/checkov-report/results_json.json
-          
+                   
           # Count by severity (if API key provided)
           if jq -e '.results.failed_checks[] | select(.severity != null)' $CHECKOV_REPORT >/dev/null; then 
             INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' $CHECKOV_REPORT)
@@ -142,7 +145,7 @@ jobs:
         # Intentionally declaring dev and test so any future environments fail by default
         if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (steps.checkov-count.outputs.high > 0 || steps.checkov-count.outputs.fail > 0) }}
         run: |
-          echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by Checkov! Deployment permitted to dev/test environment."
+          echo "::warning:: HIGH vulnerabilities or FAILED checks detected by Checkov! Deployment permitted to dev/test environment."
 
       - name: (Checkov) Conditionally Fail Pipeline in Production Environment
         # High vulnerabilities (or failed checks) will block deployment to production
