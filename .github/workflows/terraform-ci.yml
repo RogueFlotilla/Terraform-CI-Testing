@@ -30,6 +30,12 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Create Report Directories
+        if: always() # Needed if prior step fail to ensure vulnerability scans still run
+        run: |
+          mkdir ${{ TF_DIR }}/tfsec-report
+          mkdir ${{ TF_DIR }}/checkov-report
+
       # ---------- TFSEC ----------
       - name: Install tfsec with SHA256 & GPG Verification and Run
         # Was unable to determine a method for passing results from GitHub Action (aquasecurity/tfsec-action@v1.0.3) to future jobs
@@ -55,7 +61,7 @@ jobs:
           sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
 
           # Run tfsec
-          tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
+          tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report/results --soft-fail
 
       - name: (tfsec) Count Findings by Severity
         id: tfsec-count
@@ -174,7 +180,7 @@ jobs:
       #   with:
       #     name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
       #     path: |
-      #       ${{ env.TF_DIR }}/tfsec-report.*
+      #       ${{ env.TF_DIR }}/tfsec-report/results.*
       #       ${{ env.TF_DIR }}/checkov-report/results_*.*
       
       # -------------------------------------
