@@ -172,7 +172,7 @@ jobs:
           jq -r '
             ["check_id","bc_check_id","check_name","result","severity","file_path","resource","start_line","end_line","evaluated_keys","guideline"], 
             (
-              (.results.failed_checks + .results.passed_checks[]) |
+              (.results.failed_checks + .results.passed_checks)[] |
               [
                 .check_id,
                 .bc_check_id,
