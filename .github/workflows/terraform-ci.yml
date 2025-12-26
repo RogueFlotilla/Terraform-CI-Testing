@@ -66,7 +66,7 @@ jobs:
       - name: (tfsec) Count Findings by Severity
         id: tfsec-count
         env:
-          TFSEC_REPORT: ${{ env.TF_DIR }}/tfsec-report.json
+          TFSEC_REPORT: ${{ env.TF_DIR }}/tfsec-report/results.json
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates          
           LOW=$(jq '[.results[] | select(.severity=="LOW")] | length' $TFSEC_REPORT)
           MEDIUM=$(jq '[.results[] | select(.severity=="MEDIUM")] | length' $TFSEC_REPORT)
