@@ -35,9 +35,9 @@ jobs:
         # Was unable to determine a method for passing results from GitHub Action (aquasecurity/tfsec-action@v1.0.3) to future jobs
         # This manual run is intended to generate JSON output for logic to conditionally warn or fail depending on environment
         if: always() # Run tfsec even if prior job steps failed
-        run: |
+        env:
           TFSEC_TAG=v1.28.14
-          
+        run: |          
           # Download binary for tfsec tagged version pinned by variable
           curl -sSL -o tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64
           curl -sSL -o tfsec-linux-amd64.sig https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
