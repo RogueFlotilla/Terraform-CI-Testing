@@ -165,7 +165,7 @@ jobs:
       
       - name: DEBUG Output Directory Contents
         if: always()
-        run: ls -laR ${{ TF_DIR }}
+        run: ls -laR ${{ env.TF_DIR }}
 
       # - name: Upload Vulnerability Scan Reports
       #   uses: actions/upload-artifact@v4
