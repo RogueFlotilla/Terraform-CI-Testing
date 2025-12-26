@@ -55,7 +55,7 @@ jobs:
           sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
 
           # Run tfsec
-          tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
+          tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report/results --soft-fail
 
       - name: (tfsec) Count Findings by Severity
         id: tfsec-count
@@ -102,7 +102,7 @@ jobs:
         with:
           directory: ${{ env.TF_DIR }}
           output_format: cli,json,csv
-          output_file_path: ${{ env.TF_DIR }}/checkov-report/
+          output_file_path: ${{ env.TF_DIR }}/checkov-report
       
       - name: (Checkov) Count Findings by Severity
         id: checkov-count 
