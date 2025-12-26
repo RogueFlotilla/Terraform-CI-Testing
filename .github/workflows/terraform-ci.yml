@@ -198,14 +198,14 @@ jobs:
         if: always()
         run: ls -la -R ${{ env.TF_DIR }}
 
-      # - name: Upload Vulnerability Scan Reports
-      #   uses: actions/upload-artifact@v4
-      #   if: always()
-      #   with:
-      #     name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
-      #     path: |
-      #       ${{ env.TF_DIR }}/tfsec-report/*
-      #       ${{ env.TF_DIR }}/checkov-report/*
-      #     retention-days: 1
+      - name: Upload Vulnerability Scan Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
+          path: |
+            ${{ env.TF_DIR }}/tfsec-report/*
+            ${{ env.TF_DIR }}/checkov-report/*
+          retention-days: 1
       
       # -------------------------------------
