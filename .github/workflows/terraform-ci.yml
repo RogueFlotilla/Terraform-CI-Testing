@@ -36,7 +36,7 @@ jobs:
         # This manual run is intended to generate JSON output for logic to conditionally warn or fail depending on environment
         if: always() # Run tfsec even if prior job steps failed
         env:
-          TFSEC_TAG=v1.28.14
+          TFSEC_TAG: v1.28.14
         run: |          
           # Download binary for tfsec tagged version pinned by variable
           curl -sSL -o tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64
