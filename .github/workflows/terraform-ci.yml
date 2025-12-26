@@ -115,9 +115,9 @@ jobs:
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
           CHECKOV_REPORT=${{ env.TF_DIR }}/checkov-report/results_json.json
           
-          { # Try to count by severity
+          # { # Try to count by severity
           # if jq -e '.results.failed_checks[] | has("severity")' $CHECKOV_REPORT > /dev/null; then
-          # if jq -e '[.results.failed_checks[] | has("severity")] | all' $CHECKOV_REPORT >/dev/null; then
+          if jq -e '.results.failed_checks[] | select(.severity != null)' "$CHECKOV_REPORT" >/dev/null; then
             INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' $CHECKOV_REPORT)
             LOW=$(jq '[.results.failed_checks[] | select(.severity=="LOW")] | length' $CHECKOV_REPORT)
             MEDIUM=$(jq '[.results.failed_checks[] | select(.severity=="MEDIUM")] | length' $CHECKOV_REPORT)
@@ -134,8 +134,8 @@ jobs:
 
             echo "::notice:: I used the severity!"
 
-          } || { # Except count by pass/fail if API key not provided
-          # else
+          # } || { # Except count by pass/fail if API key not provided
+          else
             echo "::warning:: Checkov severity scoring may be missing. Checkov analysis falling back to simple pass/fail."
             echo "::notice:: A Checkov API key was likely not provided, resulting in Checkov severity scoring of null."
 
@@ -150,8 +150,8 @@ jobs:
             echo "::notice:: I used pass/fail!"
             echo "fails  $(jq '.summary.failed' $CHECKOV_REPORT)"
             echo "passes $(jq '.summary.failed' $CHECKOV_REPORT)"
-          }
-          # fi
+          # }
+          fi
 
       - name: DEBUG (Checkov) Print variables
         run: |
