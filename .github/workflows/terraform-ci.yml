@@ -37,24 +37,22 @@ jobs:
         if: always() # Run tfsec even if prior job steps failed
         env:
           TFSEC_TAG: v1.28.14
-          TFSEC_BINARY: tfsec-linux-amd64
-          TFSEC_KEY_NAME: D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE
         run: |          
           # Download binary for tfsec tagged version pinned by variable
-          curl -sSL -o $TFSEC_BINARY https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/$TFSEC_BINARY
-          curl -sSL -o $TFSEC_BINARY.sig https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/$TFSEC_BINARY.$TFSEC_KEY_NAME.sig
+          curl -sSL -o tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64
+          curl -sSL -o tfsec-linux-amd64.sig https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
           curl -sSL -o tfsec_checksums.txt https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec_checksums.txt
           
           # Verify SHA256 checksum
-          grep '$TFSEC_BINARY' tfsec_checksums.txt | sed 's| $TFSEC_BINARY| $TFSEC_BINARY|' | sha256sum -c -
+          grep 'tfsec-linux-amd64' tfsec_checksums.txt | sed 's| tfsec-linux-amd64| tfsec-linux-amd64|' | sha256sum -c -
 
           # Verify GPG Signature
-          gpg --keyserver keyserver.ubuntu.com --recv-keys $TFSEC_KEY_NAME
-          gpg --verify $TFSEC_BINARY.sig $TFSEC_BINARY
+          gpg --keyserver keyserver.ubuntu.com --recv-keys D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE
+          gpg --verify tfsec-linux-amd64.sig tfsec-linux-amd64
 
           # Move binary
-          chmod +x $TFSEC_BINARY
-          sudo mv $TFSEC_BINARY /usr/local/bin/tfsec
+          chmod +x tfsec-linux-amd64
+          sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
 
           # Run tfsec
           tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report --soft-fail
