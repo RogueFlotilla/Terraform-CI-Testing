@@ -114,6 +114,8 @@ jobs:
         run: |
           echo "Listing Directory Contents: "
           ls -la ${{ env.TF_DIR }}
+          echo "Listing Checkov Report Contents"
+          ls -la ${{ env.TF_DIR }}/checkov-report.json
           echo "Printing Checkov Report"
           cat ${{ env.TF_DIR }}/checkov-report.json
       
