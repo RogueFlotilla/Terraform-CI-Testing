@@ -108,7 +108,7 @@ jobs:
         with:
           api-key: "" # Pull from secrets manager if available
           directory: ${{ env.TF_DIR }}
-          output_format: json
+          output_format: json,csv
           output_file_path: ${{ env.TF_DIR }}/checkov-report
       
       - name: (Checkov) Count Findings by Severity
