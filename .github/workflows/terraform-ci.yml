@@ -34,7 +34,7 @@ jobs:
         if: always() # Needed if prior step fail to ensure vulnerability scans still run
         run: |
           mkdir ${{ env.TF_DIR }}/tfsec-report
-          mkdir ${{ env.TF_DIR }}/checkov-report
+          mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
 
       # ---------- TFSEC ----------
       - name: Install tfsec with SHA256 & GPG Verification and Run
