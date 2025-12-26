@@ -101,7 +101,7 @@ jobs:
         continue-on-error: true
         with:
           directory: ${{ env.TF_DIR }}
-          output_format: json,csv
+          output_format: json
           output_file_path: ${{ env.TF_DIR }}/checkov-report
       
       - name: (Checkov) Count Findings by Severity
