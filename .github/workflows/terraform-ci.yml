@@ -101,15 +101,25 @@ jobs:
           exit 1
       
       # ---------- CHECKOV ----------
-      - name: Pull Checkov GitHub Action Docker Container and Run
+      - name: Pull Checkov GitHub Action Docker Container and Run for CSV
         uses: bridgecrewio/checkov-action@v12
         if: always() # Ensure Checkov runs even if tfsec fails
         continue-on-error: true
         with:
           api-key: "" # Pull from secrets manager if available
           directory: ${{ env.TF_DIR }}
-          output_format: json # Cannot output JSON and CSV at same time
-          output_file_path: ${{ env.TF_DIR }}/checkov-report
+          output_format: csv,json # Cannot output JSON and CSV at same time
+          output_file_path: ${{ env.TF_DIR }}/checkov-report,${{ env.TF_DIR }}/checkov-report
+        
+      # - name: Pull Checkov GitHub Action Docker Container and Run for JSON
+      #   uses: bridgecrewio/checkov-action@v12
+      #   if: always() # Ensure Checkov runs even if tfsec fails
+      #   continue-on-error: true
+      #   with:
+      #     api-key: "" # Pull from secrets manager if available
+      #     directory: ${{ env.TF_DIR }}
+      #     output_format: json # Cannot output JSON and CSV at same time
+      #     output_file_path: ${{ env.TF_DIR }}/checkov-report
       
       - name: (Checkov) Count Findings by Severity
         id: checkov-count
@@ -166,32 +176,6 @@ jobs:
           exit 1
 
       # ---------- ARTIFACT UPLOAD ----------
-      - name: Generate Checkov CSV # For vulnerability management review/ticket creation
-      # Checkov could not ouput both JSON and CSV at the same time
-        if: always()
-        run: |
-          jq -r '
-            ["check_id","bc_check_id","check_name","result","severity","file_path","resource","start_line","end_line","evaluated_keys","guideline"], 
-            (
-              .[] | # iterate over top-level check types
-              (.results.failed_checks + .results.passed_checks)[] |
-              [
-                .check_id,
-                .bc_check_id,
-                .check_name,
-                .check_result.result,
-                (.severity // ""),
-                .file_path,
-                .resource,
-                (.file_line_range[0] // ""),
-                (.file_line_range[1] // ""),
-                (.check_result.evaluated_keys | join(";")),
-                (.guideline // "")
-              ]
-            ) 
-            | @csv
-          ' ${{ env.TF_DIR }}/checkov-report/results_json.json > ${{ env.TF_DIR }}/checkov-report/results_csv.csv
-
       - name: Set Timestamp
         if: always() # upload artifacts even if some job steps fail
         run: echo "TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_ENV
