@@ -188,7 +188,7 @@ jobs:
               ]
             ) 
             | @csv
-          ' checkov-report/results_json.json > checkov-report/results_human.csv
+          ' ${{ env.TF_DIR }}/checkov-report/results_json.json > ${{ env.TF_DIR }}/checkov-report/results_csv.csv
 
       - name: Set Timestamp
         if: always() # upload artifacts even if some job steps fail
