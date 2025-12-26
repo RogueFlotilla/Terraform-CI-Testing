@@ -166,7 +166,8 @@ jobs:
           exit 1
 
       # ---------- ARTIFACT UPLOAD ----------
-      - name: Generate Checkov CSV
+      - name: Generate Checkov CSV # For vulnerability management review/ticket creation
+      # Checkov could not ouput both JSON and CSV at the same time
         if: always()
         run: |
           jq -r '

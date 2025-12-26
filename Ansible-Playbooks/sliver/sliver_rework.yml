@@ -1,0 +1,133 @@
+# This Ansible playbook configures a Command and Control (C2) server on an Ubuntu VM. It updates
+# the apt package list, then installs C2 Framework by setting up necessary dependencies and cloning
+# from repositories. This enables the deployment of C2 tools for security testing and management.
+---
+- name: Install and configure dependencies for Sliver C2 Server and Client
+  hosts: server, client
+  become: yes
+
+  tasks:
+    - name: Update apt packages
+      apt:
+        update_cache: yes
+
+    - name: Fix and remove held packages
+      shell: |
+        sudo apt --fix-broken install -y
+        sudo dpkg --configure -a
+        sudo apt autoremove -y
+        sudo apt update
+
+    - name: Install necessary packages
+      # sudo apt update && sudo apt install -y curl golang-go gpg mingw-w64 ufw wget
+      ansible.builtin.apt:
+        update_cache: yes
+        name:
+          - curl      # for installing metasploit
+          - golang-go # sliver dependency
+          - gpg       # for installing metasploit
+          - mingw-w64 # to enable shellcode/staged/DLL payloads
+          - ufw       # for firewall rules
+          - wget      # to get sliver from github
+        state: present
+    
+    - name: Make Metasploit directory
+      # sudo mkdir /opt/metasploit && sudo chmod 755 /opt/metasploit
+      ansible.builtin.file:
+        path: /opt/metasploit
+        state: directory
+        mode: '755'
+
+    - name: Download Metasploit
+      # sudo wget https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb -O /opt/metasplit/msfinstall
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/rapid7/metasploit-omnibus/master/config/templates/metasploit-framework-wrappers/msfupdate.erb"
+        dest: "/opt/metasploit/msfinstall"
+    
+    - name: Give Metasploit installer execute permissions
+      # sudo chmod 755 /opt/metasploit/msfinstall
+      ansible.builtin.file:
+        path: "/opt/metasploit/msfinstall"
+        mode: '755'
+    
+    - name: Install Metasploit
+      # sudo ./opt/metasploit/msfinstall
+      ansible.builtin.shell:
+        cmd: "./msfinstall"
+        chdir: "/opt/metasploit/"
+    
+    - name: Enable Firewall and Open ports for Sliver C2 Server
+      # sudo ufw enable && sudo ufw allow 80,443,8888,31337/tcp && sudo ufw allow 53/udp
+      ufw:
+        state: enabled
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+      loop:
+        - {port: 22, proto: tcp } # SSH and SFTP
+        - { port: 53, proto: udp } # DNS communications (optional)
+        - { port: 80, proto: tcp } # HTTP communications and web access
+        - { port: 443, proto: tcp } # HTTPS communications and web access
+        - { port: 445, proto: tcp } # SMB (optional - lateral movement/persistance)
+        - { port: 8888, proto: tcp } # gRPC communications (multiplayer mode)
+        - { port: 31337, proto: tcp } # gRPC/mTLS communications
+    
+    - name: Make Sliver directory
+      # sudo mkdir /opt/sliver && sudo chmod 755 /opt/sliver
+      ansible.builtin.file:
+        path: /opt/sliver
+        state: directory
+        mode: '755'
+
+- name: Install Sliver C2 Server
+  hosts: server
+  become: yes
+  vars:
+    sliver_version: "1.5.42"
+  
+  tasks:
+    - name: Download Sliver Server
+      # sudo wget https://github.com/BishopFox/sliver/releases/download/v1.5.42/sliver-server_linux -O /opt/sliver/sliver-server_linux
+      ansible.builtin.get_url:
+        url: "https://github.com/BishopFox/sliver/releases/download/v{{ sliver_version }}/sliver-server_linux"
+        dest: "/opt/sliver/"
+
+    - name: Give Sliver execute permissions
+      # sudo chmod 755 /opt/sliver/sliver-server_linux
+      ansible.builtin.file:
+        path: "/opt/sliver/sliver-server_linux"
+        mode: '755'
+
+    - name: Run Sliver
+      ansible.builtin.shell: "./sliver-server_linux &"
+      args:
+        chdir: "/opt/sliver/"
+      async: 3600
+      poll: 0
+      register: command_result
+    
+    - name: Print the result of the command
+      ansible.builtin.debug:
+        var: command_result
+
+- name: Install and configure Sliver C2 Client
+  hosts: client
+  become: yes
+  vars:
+    sliver_version: "1.5.42"
+
+  tasks:
+    - name: Download Sliver client
+      ansible.builtin.get_url:
+        url: "https://github.com/BishopFox/sliver/releases/download/v{{ sliver_version }}/sliver-client_linux"
+        dest: "/opt/sliver/"
+
+    - name: Give Sliver execute permissions
+      ansible.builtin.file:
+        path: "/opt/sliver/sliver-client_linux"
+        mode: '755'
+
+    # - name: Run Sliver
+    #   ansible.builtin.shell:
+    #     cmd: "./sliver-server_linux"
+    #     chdir: "/opt/sliver/"

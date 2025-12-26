@@ -1,0 +1,82 @@
+# This Ansible playbook configures a Command and Control (C2) server on an Ubuntu VM. It updates
+# the apt package list, then installs C2 Framework by setting up necessary dependencies and cloning
+# from repositories. This enables the deployment of C2 tools for security testing and management.
+---
+- name: Install and configure Sliver C2 on existing AWS EC2 instance
+  hosts: all
+  become: yes
+  vars:
+    sliver_version: "1.5.34"
+    go_version: "1.20.1"
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install necessary packages
+      apt:
+        name:
+          - wget
+          - golang-go
+          - gpg
+          - git
+          - build-essential
+        state: present
+
+    - name: Download Sliver server and client
+      get_url:
+        url: "https://github.com/BishopFox/sliver/releases/download/v{{ sliver_version }}/sliver-server_linux_amd64.tar.gz"
+        dest: "/tmp/sliver-server_linux_amd64.tar.gz"
+
+    - name: Download Sliver client
+      get_url:
+        url: "https://github.com/BishopFox/sliver/releases/download/v{{ sliver_version }}/sliver-client_linux_amd64.tar.gz"
+        dest: "/tmp/sliver-client_linux_amd64.tar.gz"
+
+    - name: Extract Sliver server
+      unarchive:
+        src: "/tmp/sliver-server_linux_amd64.tar.gz"
+        dest: /usr/local/bin/
+        remote_src: yes
+
+    - name: Extract Sliver client
+      unarchive:
+        src: "/tmp/sliver-client_linux_amd64.tar.gz"
+        dest: /usr/local/bin/
+        remote_src: yes
+
+    - name: Import GPG key for verification
+      shell: |
+        wget https://raw.githubusercontent.com/BishopFox/sliver/master/server/assets/fs/sliver.asc -O /tmp/sliver.asc
+        gpg --import /tmp/sliver.asc
+
+    - name: Verify Sliver binaries
+      shell: |
+        gpg --verify /usr/local/bin/sliver-client.sig /usr/local/bin/sliver-client || true
+        gpg --verify /usr/local/bin/sliver-server.sig /usr/local/bin/sliver-server || true
+
+    - name: Create systemd service for Sliver server
+      copy:
+        dest: /etc/systemd/system/sliver.service
+        content: |
+          [Unit]
+          Description=Sliver C2 Server
+
+          [Service]
+          ExecStart=/usr/local/bin/sliver-server
+          User=ubuntu
+          Restart=always
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Enable and start Sliver service
+      systemd:
+        name: sliver.service
+        enabled: yes
+        state: started
+
+    - name: Create a new operator in Sliver C2
+      shell: |
+        /usr/local/bin/sliver-client new-operator --name Ezio -l 127.0.0.1

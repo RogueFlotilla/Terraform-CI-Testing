@@ -1,0 +1,63 @@
+# SUMMARY:
+# This Ansible file ...
+
+# ATTRIBUTION:
+# This code is based on the original work by Arun 'dazzyddos' Nair, Aravind 'Resillion', and
+# Soumyadeep 'CRED', available at https://github.com/dazzyddos/HSC24RedTeamInfra. It has been
+# merged, modified, and expanded on by Natasha 'geeberish' Menon and Richard 'rmf89685' Flores,
+# under the guidance of Dr. Alex 'ambaziir' Mbaziira, to fulfill the requirements of this research
+# project. Current project repository available at https://github.com/rmf89685/Redteamer. Project
+# repository pre-merge available at https://github.com/rmf89685/RT2024-Research-Project-AWS.
+--- # Setup RedELK on the target HTTPs redirectors
+- hosts: redelk_server # Target hosts for this playbook are those in the 'redelk_server' group
+  become: yes # Use sudo to execute tasks that require elevated privileges
+  tasks:
+
+  - name: Update apt package list
+    apt:
+      update_cache: yes
+    # Install necessary packages on the target machines
+  - name: Install below programs
+    apt: 
+        name: "{{ item }}"
+        state: present
+    with_items:
+          - unzip # 'unzip' for extracting files
+          - tmux # 'tmux' for terminal multiplexing
+          - net-tools # 'net-tools' for network utilities
+          - build-essential # 'build-essential' for compiling software
+
+  # Create the directory /tmp/elkserver on the target machine if it does not exist
+  - name: create /tmp/elkserver
+    file: 
+        path: /tmp/elkserver
+        state: directory
+
+  # Extract the 'elkserver.tgz' archive from the local path to the /tmp/elkserver directory on the target machine
+  - name: Ansible unarchive the elkserver.tgz to the target redirector
+    unarchive:
+        src: /home/ubuntu/RedELK/elkserver.tgz
+        dest: /tmp/elkserver
+
+  # Update the RedELK interface password in the 'install-elkserver.sh' script
+  # This is done by using 'sed' to replace a placeholder with the actual password
+  - name: Changing the RedELK Interface password
+    command:
+        cmd: sed -i 's/CREDS_redelk=.*urandom.*/CREDS_redelk="redelk@123"/' ./install-elkserver.sh
+        chdir: /tmp/elkserver/elkserver
+    register: install_output # Capture the output of the command
+    ignore_errors: true # Ignore errors and continue with the next tasks
+
+  # Execute the 'install-elkserver.sh' script to install RedELK with 'limited' mode
+  # The script is executed within the directory where it is located
+  - name: Installing RedElk
+    command:
+        cmd: ./install-elkserver.sh limited
+        chdir: /tmp/elkserver/elkserver
+    register: install_output # Capture the output of the command
+    ignore_errors: true # Ignore errors and continue with the next tasks
+
+  # Make configuration changes by appending a cron job to run a script every 2 minutes
+  # The cron job is used to periodically execute a script to get remote logs
+  - name: Making the configuration changes
+    shell: echo '*/2 * * * * redelk /usr/share/redelk/bin/getremotelogs.sh {{ C2IP }} {{ C2HOST }} scponly' >> /tmp/elkserver/elkserver/mounts/redelk-config/etc/cron.d/redelk

@@ -1,0 +1,34 @@
+# SUMMARY:
+# This Ansible file ...
+
+# ATTRIBUTION:
+# This code is based on the original work by Arun 'dazzyddos' Nair, Aravind 'Resillion', and
+# Soumyadeep 'CRED', available at https://github.com/dazzyddos/HSC24RedTeamInfra. It has been
+# merged, modified, and expanded on by Natasha 'geeberish' Menon and Richard 'rmf89685' Flores,
+# under the guidance of Dr. Alex 'ambaziir' Mbaziira, to fulfill the requirements of this research
+# project. Current project repository available at https://github.com/rmf89685/Redteamer. Project
+# repository pre-merge available at https://github.com/rmf89685/RT2024-Research-Project-AWS.
+--- # Setup RedELK on the target redirectors
+- hosts: all
+  become: yes
+  tasks:
+    # Create the directory /tmp/redirs on the target machine if it does not exist
+  - name: create /tmp/redirs
+    file: 
+        path: /tmp/redirs
+        state: directory
+  
+  # Extract the 'redirs.tgz' archive from the local path to the /tmp/redirs directory on the target machine
+    # The archive likely contains necessary files or scripts for RedELK setup
+  - name: Ansible unarchive the redirs.tgz to the target redirector
+    unarchive:
+        src: /home/ubuntu/RedELK/redirs.tgz
+        dest: /tmp/redirs
+
+  # Execute the 'install-redir.sh' script located in the /tmp/redirs/redirs directory
+    # Pass parameters to the script: {{ HOSTNAME }} for the hostname, 'shorthaul' as a configuration parameter,
+    # and '10.0.2.103:5044' as a server address for some service
+  - name: Running the install-redir.sh script on the redirector
+    shell: 
+      cmd: ./install-redir.sh {{ HOSTNAME }} shorthaul 10.0.2.103:5044
+      chdir: /tmp/redirs/redirs

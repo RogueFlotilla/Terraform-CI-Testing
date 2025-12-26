@@ -1,0 +1,187 @@
+# SUMMARY:
+# This Ansible playbook automates the configuration of a "stock" virtual machine (VM) provisioned
+# by Terraform on the Evilginx server. The playbook sets up necessary configurations and installs
+# required software to prepare the server for Evilginx operations.
+
+# ATTRIBUTION:
+# This code is based on the original work by Arun 'dazzyddos' Nair, Aravind 'Resillion', and
+# Soumyadeep 'CRED', available at https://github.com/dazzyddos/HSC24RedTeamInfra. It has been
+# merged, modified, and expanded on by Natasha 'geeberish' Menon and Richard 'rmf89685' Flores,
+# under the guidance of Dr. Alex 'ambaziir' Mbaziira, to fulfill the requirements of this research
+# project. Current project repository available at https://github.com/rmf89685/Redteamer. Project
+# repository pre-merge available at https://github.com/rmf89685/RT2024-Research-Project-AWS.
+---
+# Applies to Evilginx host
+- name: Setup Evilginx
+  hosts: evilginx
+  become: yes
+  vars:
+    project_directory: "/opt/evilginx" # Directory for Evilginx installation
+    go_install_dir: "/usr/local"       # Directory where Golang will be installed
+    go_tarball_dir: "/tmp"             # Directory where Golang tarball will be downloaded
+    evilginx_user: "evilginx"          # User account for running Evilginx
+
+  # Update apt packages cache (sudo apt update)
+  tasks:
+  - name: Update apt packages
+    apt:
+      update_cache: yes
+  - name: Fix and remove held packages
+    shell: |
+      sudo apt --fix-broken install -y
+      sudo dpkg --configure -a
+      sudo apt autoremove -y
+      sudo apt update
+
+  # Install packages listed (sudo apt install {{ item }})
+  - name: Install below programs
+    apt: 
+        name: "{{ item }}"
+        state: present
+    with_items:
+          - build-essential # Essential tools for building software
+          - libcap2-bin     # Provide the 'setcap' command
+          - net-tools       # Networking utilities
+          - nodejs          # JavaScript runtime
+          - tmux            # Terminal multiplexer
+          - unzip           # Required to extract compressed files
+
+  # Find the latest Golang version download link
+  - name: Find the latest Golang version download link
+    ansible.builtin.shell: wget -qO- https://go.dev/dl/ | grep -oP 'go[0-9]+\.[0-9]+\.[0-9]+\.linux-amd64\.tar\.gz' | head -1
+    register: go_download_link
+
+  # Set full download URL for the latest Golang version
+  - name: Set full download URL for the latest Golang version
+    set_fact:
+      go_full_url: "https://go.dev/dl/{{ go_download_link.stdout }}"
+
+  # Download the latest Golang tarball
+  - name: Download the latest Golang tarball
+    get_url:
+      url: "{{ go_full_url }}"
+      dest: "{{ go_tarball_dir }}/golang.tar.gz"
+      timeout: 60
+
+  # Remove any existing Golang installation
+  - name: Remove existing Golang installation
+    ansible.builtin.file:
+      path: "{{ go_install_dir }}/go"
+      state: absent
+
+  # Extract Golang tarball into the specified directory
+  - name: Extract Golang tarball
+    ansible.builtin.unarchive:
+      src: "{{ go_tarball_dir }}/golang.tar.gz"
+      dest: "{{ go_install_dir }}"
+      remote_src: yes
+      extra_opts: [--strip-components=1]
+
+  # Set Golang environment variables globally
+  - name: Set Golang environment variables globally
+    ansible.builtin.lineinfile:
+      path: /etc/profile.d/golang.sh
+      line: "{{ item }}"
+      create: yes
+    with_items:
+      - 'export PATH=$PATH:{{ go_install_dir }}/go/bin' # Add Golang binary directory to PATH
+      - 'export GOPATH=$HOME/go'                        # Set GOPATH environment variable
+      - 'export PATH=$PATH:$GOPATH/bin'                 # Add GOPATH bin directory to PATH
+    notify:
+      - Reload profile # Notify handler to reload profile
+
+  # Clone the Evilginx GitHub repository
+  - name: Clone Evilginx repository
+    ansible.builtin.git:
+      repo: 'https://github.com/kgretzky/evilginx2.git'
+      dest: "{{ project_directory }}"
+      clone: yes
+      update: yes
+
+  # Run 'make' command to build the Evilginx binary
+  - name: Run make command to build the Binary
+    ansible.builtin.command:
+      chdir: "{{ project_directory }}"
+      cmd: make
+
+  # Create a new user for Evilginx with a home directory
+  - name: Create a new user for Evilginx
+    user:
+      name: "{{ evilginx_user }}"
+      shell: /bin/bash
+      create_home: yes
+
+  # Create .ssh directory for the Evilginx user
+  - name: Create .ssh directory for Evilginx user
+    file:
+      path: "/home/{{ evilginx_user }}/.ssh"
+      state: directory
+      owner: "{{ evilginx_user }}"
+      group: "{{ evilginx_user }}"
+      mode: '0700'
+  # Copy the authorized_keys file to the Evilginx user's .ssh directory
+  - name: Copy authorized_keys to Evilginx user's .ssh directory
+    copy:
+      src: "/home/ubuntu/.ssh/authorized_keys"
+      dest: "/home/{{ evilginx_user }}/.ssh/authorized_keys"
+      owner: "{{ evilginx_user }}"
+      group: "{{ evilginx_user }}"
+      mode: '0600'
+  # Add Evilginx user to sudoers with no password required
+  - name: Add Evilginx user to sudoers
+    lineinfile:
+      path: /etc/sudoers
+      line: "{{ evilginx_user }} ALL=(ALL) NOPASSWD:ALL"
+      validate: 'visudo -cf %s'
+      state: present
+    become: yes
+
+  # Set ownership of the Evilginx project directory
+  - name: Set ownership of Evilginx directory
+    file:
+      path: "{{ project_directory }}"
+      state: directory
+      owner: "{{ evilginx_user }}"
+      group: "{{ evilginx_user }}"
+      recurse: yes
+
+  # Grant permissions to the Evilginx binary to bind to privileged ports (53 and 443)
+  - name: Give evilginx binary permissions to use privileged ports (53 and 443)
+    command: /sbin/setcap 'cap_net_bind_service=+ep' {{ project_directory }}/build/evilginx
+
+  # Stop and disable the systemd-resolved service
+  - name: Stop and disable systemd-resolved
+    systemd:
+      name: systemd-resolved
+      state: stopped
+      enabled: no
+
+  # Remove the existing /etc/resolv.conf fil
+  - name: Remove /etc/resolv.conf
+    file:
+      path: /etc/resolv.conf
+      state: absent
+
+  # Create a new /etc/resolv.conf file with a custom nameserver
+  - name: Create /etc/resolv.conf with custom nameserver
+    copy:
+      dest: /etc/resolv.conf
+      content: |
+        nameserver 8.8.8.8
+      owner: root
+      group: root
+      mode: '0644'
+
+  # Add hostname to /etc/hosts to prevent sudo warning
+  - name: Add hostname to /etc/hosts to prevent sudo warning
+    lineinfile:
+      path: /etc/hosts
+      line: '127.0.0.1 {{ ansible_hostname }}'
+      state: present
+
+  # Handler to reload the profile with Golang environment variables
+  handlers:
+  - name: Reload profile
+    ansible.builtin.shell: . /etc/profile.d/golang.sh
+    args:
+      executable: /bin/bash

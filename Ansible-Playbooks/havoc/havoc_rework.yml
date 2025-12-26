@@ -1,0 +1,206 @@
+---
+# Install Havoc C2 Framework Server (OPEN SOURCE)
+# https://havocframework.com/docs/installation
+# Note: Requires t2.large instance type in AWS due to recommended RAM requirement
+- name: Install Dependencies and Clone Havoc Repo
+  hosts: server, client
+  #hosts: all
+  become: yes
+
+  tasks:
+    - name: Update APT "sudo apt update"
+      apt:
+        update_cache: yes
+  
+    - name: Add deadsnakes repository
+      apt_repository:
+        repo: ppa:deadsnakes/ppa
+        state: present
+
+    - name: Install required packages
+      apt:
+        update_cache: yes
+        name:
+          - apt-utils #
+          - build-essential #
+          - ca-certificates
+          - cmake #
+          - curl
+          - git #
+          - golang-github-ugorji-go-codec-dev
+          - golang-go #
+          - golang-golang-x-sys-dev
+          - libboost-all-dev #
+          - libbz2-dev #
+          - libffi-dev #
+          - libfontconfig1 #
+          - libgdbm-dev #
+          - libglu1-mesa-dev #
+          - libgtest-dev #
+          - libncurses5-dev #
+          - libpython{{ python_version }} ##
+          - libpython{{ python_version }}-dev ##
+          - libqt5websockets5 #
+          - libqt5websockets5-dev #
+          - libreadline-dev #
+          - libspdlog-dev #
+          - libsqlite3-dev #
+          - libssl-dev #
+          - mesa-common-dev #
+          - mingw-w64 #
+          - nano
+          - nasm #
+          - pkg-config
+          - python3-dev ##
+          - python{{ python_version }} ##
+          - python{{ python_version }}-dev ##
+          - qt5-qmake #
+          - qtbase5-dev #
+          - qtbase5-dev-tools #
+          - qtchooser #
+          - qtdeclarative5-dev #
+          - ufw
+          - xauth
+        state: present
+
+    - name: Ensure havoc_install_dir exists
+      file:
+        path: "{{ havoc_install_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Clone Havoc source code
+      git:
+        repo: "{{ havoc_repo }}"
+        dest: "{{ havoc_install_dir }}"
+        update: yes
+        clone: yes
+        depth: 1
+        version: dev
+        force: yes # overwrite changes
+    
+    - name: Install additional golang dependency (x-sys)
+      shell: go mod download golang.org/x/sys
+      args:
+        chdir: "{{ havoc_install_dir }}/teamserver"
+    
+    - name: Install additional golang dependency (ugorji)
+      shell: go mod download github.com/ugorji/go
+      args:
+        chdir: "{{ havoc_install_dir }}/teamserver"
+
+    - name: Install teamserver
+      shell: ./Install.sh
+      args:
+        chdir: "{{ havoc_install_dir }}/teamserver"
+
+
+    - name: Run 'ts-build' to build Havoc Teamserver
+      make:
+        chdir: "{{ havoc_install_dir }}"
+        target: ts-build
+
+    - name: Open port for Havoc C2 Teamserver
+      ufw:
+        rule: allow
+        port: "{{ havoc_port }}"
+        proto: tcp
+    
+    - name: Open ports for NFS
+      ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: "{{ item.proto }}"
+      loop:
+        - { port: 111, proto: tcp }
+        - { port: 111, proto: udp }
+        - { port: 2049, proto: tcp }
+        - { port: 2049, proto: udp }
+    
+    - name: Open port for SSH
+      ufw:
+        rule: allow
+        port: "22"
+        proto: tcp
+    
+    - name: Enable UFW
+      ufw:
+        state: enabled
+
+- name: Configure Havoc server
+  hosts: server
+  #: all
+  become: yes
+
+  tasks:
+    - name: Install required server packages
+      apt:
+        update_cache: yes
+        name:
+          - nfs-kernel-server
+        state: present
+    
+    - name: Add shared network drive for teamserver.db
+      ansible.builtin.lineinfile:
+        path: /etc/exports
+        line: '/home/ubuntu/Havoc/data *(rw,sync,no_subtree_check,no_root_squash)'
+        state: present
+    
+    - name: Restart service NFS server
+      ansible.builtin.systemd_service:
+        state: restarted
+        daemon_reload: true
+        name: nfs-kernel-server
+
+- name: Configure Havoc client
+  hosts: client
+  become: yes
+
+  tasks:
+    - name: Install required client packages
+      apt:
+        update_cache: yes
+        name:
+          - nfs-common
+        state: present
+    
+    - name: Run 'client-build' to build Havoc client
+      make:
+        chdir: "{{ havoc_install_dir }}"
+        target: client-build
+    
+    - name: Ensure /mnt/teamserver/ exists
+      file:
+        path: "/mnt/teamserver"
+        state: directory
+        mode: '0755'
+
+    - name: Mount teamserver.db from server
+      shell:
+        cmd: sudo mount {{ server_public_ip }}:/home/ubuntu/Havoc/data/ /mnt/teamserver/
+    
+    - name: Add teamserver.db location to client config.toml
+      blockinfile:
+        path: /home/ubuntu/Havoc/client/config.toml
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR DB LOCATION"
+        block: |
+          [database]
+          path = "/mnt/teamserver/teamserver.db"
+        state: present
+
+    - name: Remove commented '# X11Forwarding no' line from ssh config
+      lineinfile:
+        path: /etc/ssh/ssh_config
+        line: '# X11Forwarding no'
+        state: absent
+
+    - name: Add X11 forwarding settings
+      blockinfile:
+        path: /etc/ssh/ssh_config
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR X11 FORWARDING"
+        block: |
+          ForwardAgent yes
+          X11Forwarding yes
+          X11DisplayOffset 10
+          X11UseLocalhost yes
+        state: present

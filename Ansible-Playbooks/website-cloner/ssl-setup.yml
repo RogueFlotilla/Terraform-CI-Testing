@@ -1,0 +1,155 @@
+# SUMMARY:
+# This Ansible file ...
+
+# ATTRIBUTION:
+# This code is based on the original work by Arun 'dazzyddos' Nair, Aravind 'Resillion', and
+# Soumyadeep 'CRED', available at https://github.com/dazzyddos/HSC24RedTeamInfra. It has been
+# merged, modified, and expanded on by Natasha 'geeberish' Menon and Richard 'rmf89685' Flores,
+# under the guidance of Dr. Alex 'ambaziir' Mbaziira, to fulfill the requirements of this research
+# project. Current project repository available at https://github.com/rmf89685/Redteamer. Project
+# repository pre-merge available at https://github.com/rmf89685/RT2024-Research-Project-AWS.
+--- # Setup HTTPS Redirector on the target redirectors
+- hosts: all # Target all hosts specified in the inventory
+  become: yes # Use sudo to execute tasks that require elevated privileges
+  tasks:
+    # Enable necessary Apache2 modules for HTTPS redirection
+    - name: Enable Apache2 mods (rewrite, proxy, proxy_http, ssl)
+      apache2_module: 
+        name: "{{ item }}"
+        state: present
+      with_items:
+        - rewrite # 'rewrite' is for URL rewriting
+        - proxy # 'proxy' is for handling proxy requests
+        - proxy_http # 'proxy_http' is for handling proxy requests
+        - ssl # 'ssl' is for enabling SSL/TLS support
+
+    # Copy the SSL configuration file from the local machine to the target machine
+    # This file configures Apache to use SSL/TLS for secure connections
+    - name: Ansible copy files remote to remote
+      copy:
+        src: /tmp/server-ssl.conf
+        dest: /etc/apache2/sites-available/server-ssl.conf
+
+    # Replace placeholder 'DOMAIN' in the SSL configuration file with the actual domain name
+    - name: Ansible replace DOMAIN with domainname
+      replace:
+        path: /etc/apache2/sites-available/server-ssl.conf
+        regexp: 'DOMAIN'
+        replace: "{{ DOMAIN }}"
+
+    # Install SSL certificate using Certbot
+    # 'certbot' will generate and install a certificate for the specified domain
+    # '--webroot' specifies the webroot path for the domain, and '--register-unsafely-without-email' 
+    # bypasses email registration for this command (useful for automated setups)
+    - name: Installing our ssl certification
+      shell: echo 'Y' | certbot certonly -d "{{ DOMAIN }}" --webroot -w /var/www/html/ --register-unsafely-without-email
+    
+    # Enable the new site configuration by creating a symbolic link from 'sites-available' to 'sites-enabled'
+    - name: Enabling our configuration
+      shell: 
+        cmd: a2ensite server-ssl.conf
+        chdir: /etc/apache2/sites-available
+
+    # Reload Apache to apply the new configuration changes and activate the SSL certificate
+    - name: Reload Apache
+      service: 
+        name: apache2
+        state: reloaded
+#AWS Certbot Code
+  #       - hosts: localhost  # Since you're configuring CloudFront and DNS, it will run locally or on an admin node
+  # become: no  # No need for elevated privileges since we are interacting with AWS services
+  # tasks:
+  #   # Install AWS CLI and Certbot
+  #   - name: Install AWS CLI and Certbot
+  #     package:
+  #       name:
+  #         - aws-cli
+  #         - certbot
+  #       state: present
+
+  #   # Configure AWS CLI with access keys
+  #   - name: Configure AWS CLI
+  #     shell: |
+  #       aws configure set aws_access_key_id "{{ aws_access_key_id }}"
+  #       aws configure set aws_secret_access_key "{{ aws_secret_access_key }}"
+  #       aws configure set region "{{ aws_region }}"
+  #     when: aws_access_key_id is defined and aws_secret_access_key is defined and aws_region is defined
+
+  #   # Request Let's Encrypt SSL certificate using DNS-01 challenge
+  #   - name: Request SSL certificate with DNS validation
+  #     shell: |
+  #       certbot certonly --manual --preferred-challenges dns -d "{{ DOMAIN }}" --agree-tos --no-eff-email --register-unsafely-without-email
+  #     register: certbot_output
+  #     ignore_errors: yes
+
+  #   - name: Extract DNS-01 challenge details
+  #     set_fact:
+  #       dns_challenge: "{{ certbot_output.stdout | regex_search('.*_acme-challenge.*\\n.*', '\\0') }}"
+
+  #   - name: Parse DNS challenge for TXT record
+  #     set_fact:
+  #       dns_txt_record: "{{ dns_challenge.split(' ')[1] }}"
+
+  #   # Add the TXT record for DNS-01 validation (You will need to update DNS manually)
+  #   - name: Display DNS challenge TXT record to add to DNS
+  #     debug:
+  #       msg: "Add the following DNS TXT record: _acme-challenge.{{ DOMAIN }} with value {{ dns_txt_record }}"
+
+  #   # Wait for DNS validation to propagate (you will need to monitor the DNS)
+  #   - name: Wait for DNS propagation
+  #     pause:
+  #       seconds: 120
+
+  #   # Install CloudFront distribution to serve S3 bucket content with HTTPS
+  #   - name: Create CloudFront distribution
+  #     aws_cloudfront_distribution:
+  #       state: present
+  #       origin:
+  #         domain_name: "{{ s3_bucket_name }}.s3.amazonaws.com"
+  #         origin_id: "{{ s3_bucket_name }}"
+  #       enabled: yes
+  #       default_cache_behavior:
+  #         viewer_protocol_policy: redirect-to-https
+  #         allowed_methods:
+  #           items:
+  #             - GET
+  #             - HEAD
+  #         target_origin_id: "{{ s3_bucket_name }}"
+  #       default_root_object: index.html
+  #       viewer_certificate:
+  #         acm_certificate_arn: "{{ acm_certificate_arn }}"  # The ACM certificate ARN you will associate with CloudFront
+  #         ssl_support_method: sni-only
+  #     register: cloudfront_distribution
+
+  #   - name: Display CloudFront distribution details
+  #     debug:
+  #       msg: "CloudFront distribution created: {{ cloudfront_distribution.distribution.domain_name }}"
+
+  #   # Update DNS to point to CloudFront distribution
+  #   - name: Update DNS record to point to CloudFront distribution
+  #     aws_route53:
+  #       zone: "{{ dns_zone }}"
+  #       record:
+  #         name: "{{ DOMAIN }}"
+  #         type: CNAME
+  #         value: "{{ cloudfront_distribution.distribution.domain_name }}"
+  #         ttl: 60
+  #       state: present
+
+  #   # Complete SSL certificate process once DNS is verified
+  #   - name: Complete SSL certificate issuance
+  #     shell: |
+  #       certbot certonly --manual --preferred-challenges dns -d "{{ DOMAIN }}" --agree-tos --no-eff-email --register-unsafely-without-email
+  #     when: dns_txt_record is defined
+
+  #   # Reload CloudFront to apply SSL certificate changes
+  #   - name: Wait for CloudFront distribution to be deployed
+  #     pause:
+  #       minutes: 5
+
+  #   - name: Invalidate CloudFront cache
+  #     aws_cloudfront_invalidations:
+  #       distribution_id: "{{ cloudfront_distribution.distribution.id }}"
+  #       paths:
+  #         - "/*"
+  #       state: present

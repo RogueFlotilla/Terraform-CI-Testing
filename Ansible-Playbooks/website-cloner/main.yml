@@ -1,0 +1,83 @@
+# SUMMARY:
+# This Ansible file ...
+
+# ATTRIBUTION:
+# This code is based on the original work by Arun 'dazzyddos' Nair, Aravind 'Resillion', and
+# Soumyadeep 'CRED', available at https://github.com/dazzyddos/HSC24RedTeamInfra. It has been
+# merged, modified, and expanded on by Natasha 'geeberish' Menon and Richard 'rmf89685' Flores,
+# under the guidance of Dr. Alex 'ambaziir' Mbaziira, to fulfill the requirements of this research
+# project. Current project repository available at https://github.com/rmf89685/Redteamer. Project
+# repository pre-merge available at https://github.com/rmf89685/RT2024-Research-Project-AWS.
+---
+- name: Clone website and server with Apache
+  hosts: all # Target all hosts specified in the inventory
+  become: yes # Use sudo to execute tasks that require elevated privileges
+  remote_user: ubuntu
+  vars:
+    # URL of the website to be cloned; provided at runtime
+    website_url: "{{ website_url }}"  # This variable will be provided on the command line
+
+  tasks:
+    # Update the APT package cache to ensure the latest package information is available
+    - name: Update apt packages
+      apt:
+        update_cache: yes
+
+    - name: Fix and remove held packages
+      shell: |
+        sudo apt --fix-broken install -y
+        sudo dpkg --configure -a
+        sudo apt autoremove -y
+        sudo apt update
+
+    # Install necessary programs for the web server setup and management
+    - name: Install below programs
+      apt: 
+          name: "{{ item }}"
+          state: present
+      with_items:
+          - apache2 # 'apache2' for the web server
+          - python3 # 'python3' for running Python scripts
+          - wget # 'wget' for downloading files
+          - golang # 'golang' for Go language support
+          - unzip # 'unzip' for extracting zip files
+          - tmux # 'tmux' for terminal multiplexing
+          - net-tools # 'net-tools' for network utilities
+          - certbot # 'certbot' for SSL certificate management
+          - python3-certbot-apache # 'python3-certbot-apache' for SSL certificate management
+          - build-essential # 'build-essential' for compiling software
+
+    # Clean up the /var/www/html directory to remove residual or corrupted files from previous runs
+    - name: Cleanup old website files
+      file:
+        path: /var/www/html
+        state: absent
+
+    # Recreate the /var/www/html directory after cleanup
+    - name: Recreate the website directory
+      file:
+        path: /var/www/html
+        state: directory
+        mode: '0755'
+
+    # Download the website using wget with options to mirror the site, convert links, and adjust file extensions
+    # The content will be saved to /var/www/html directory
+    - name: Clone the website
+      command: wget --mirror --convert-links --adjust-extension --page-requisites --no-parent -P /var/www/html {{ website_url }}
+      args:
+        chdir: /var/www/html/ # Set the working directory for the command
+      ignore_errors: yes
+
+    # Move all files from the website URL directory to the web server root directory
+    # This is done after cloning the website to ensure all files are in the correct location
+    - name: Move all files to webserver root folder (/var/www/html)
+      ansible.builtin.shell: mv -f /var/www/html/{{ website_url }}/* /var/www/html/
+
+    # Ensure that Apache is running and enabled to start on boot
+    # This task will only execute if the operating system family is Debian-based (e.g., Ubuntu)
+    - name: Ensure Apache is running and enabled
+      service:
+        name: apache2
+        state: started # Ensure the Apache service is running
+        enabled: yes # Ensure Apache is enabled to start on boot
+      when: ansible_os_family == "Debian"

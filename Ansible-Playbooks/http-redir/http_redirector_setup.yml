@@ -1,0 +1,145 @@
+# SUMMARY:
+# This Ansible file ...
+
+# ATTRIBUTION:
+# This code is based on the original work by Arun 'dazzyddos' Nair, Aravind 'Resillion', and
+# Soumyadeep 'CRED', available at https://github.com/dazzyddos/HSC24RedTeamInfra. It has been
+# merged, modified, and expanded on by Natasha 'geeberish' Menon and Richard 'RogueFlotilla' Flores,
+# under the guidance of Dr. Alex 'ambaziir' Mbaziira, to fulfill the requirements of this research
+# project. Current project repository available at https://github.com/RogueFlotilla/Redteamer. 
+# Project repository pre-merge at https://github.com/RogueFlotilla/RT2024-Research-Project-AWS.
+--- # Setup HTTP Redirector on the target redirectors
+- hosts: all
+  become: yes
+  tasks:
+  # Update the APT package cache to ensure we get the latest package information
+  - name: Update apt packages
+    apt:
+      update_cache: yes
+  - name: Fix and remove held packages
+    shell: |
+      sudo apt --fix-broken install -y
+      sudo dpkg --configure -a
+      sudo apt autoremove -y
+      sudo apt update
+  # Install Apache2 and net-tools
+  - name: Install Apache2
+    apt: 
+        name: "{{ item }}"
+        state: present
+    with_items:
+          - apache2 # 'apache2' is the web server
+          - net-tools # 'net-tools' includes network utilities
+
+  # Enable necessary Apache2 modules for redirection
+    # 'rewrite' is for URL rewriting, 'proxy' and 'proxy_http' are for handling proxy requests
+  - name: Enable Apache2 mods (rewrite, proxy, proxy_http)
+    apache2_module: 
+          name: "{{ item }}"
+          state: present
+    with_items:
+          - proxy # 'proxy' is for handling proxy requests
+          - proxy_http # proxy_http' is for handling proxy requests
+          - rewrite # 'rewrite' is for URL rewriting
+  # Enable necessary Apache2 modules for redirection
+    # 'rewrite' is for URL rewriting, 'proxy' and 'proxy_http' are for handling proxy requests
+  - name: Enable Apache2 mods (rewrite, proxy, proxy_http)
+    apache2_module: 
+          name: "{{ item }}"
+          state: present
+    with_items:
+          - proxy # 'proxy' is for handling proxy requests
+          - proxy_http # proxy_http' is for handling proxy requests
+          - rewrite # 'rewrite' is for URL rewriting
+
+  - name: Set the configuration file based on C2 type
+    set_fact:
+         config_file: >-
+           {{
+             'havoc_httpredir.conf' if expc2var == "1" else
+             'sliver_httpredir.conf' if expc2var == "2" else
+             ''
+           }}
+
+
+    # Fail gracefully if config_file is not set
+  - name: Ensure a valid C2 type is specified
+    fail:
+         msg: "Invalid or missing C2 type (expc2var). Must be 1 (Havoc), or 2 (Sliver)."
+    when: config_file == ''
+
+     # Debug to confirm the selected config_file
+  - name: Debug selected config_file
+    debug:
+         msg: "Using configuration file: {{ config_file }}."
+
+  - name: Copy config to target
+    copy:
+      src: /tmp/{{ config_file }}
+      dest: /tmp/{{ config_file }}
+      mode: '0644'
+
+  - name: Validate presence of config file
+    shell: ls -l /tmp/{{ config_file }}
+    register: config_check
+    failed_when: config_check.rc != 0
+    ignore_errors: no
+
+  - name: Debug config file existence
+    debug:
+      var: config_check.stdout
+
+
+  # Copy the HTTP redirection configuration file from the local machine to the remote target
+  - name: Ansible copy files remote to remote
+    copy:
+      src: /tmp/{{ config_file }}
+      dest: /etc/apache2/sites-available/{{ config_file }}
+      remote_src: yes
+
+  # Replace placeholder 'C2IP' with the actual command and control (C2) server IP address in the configuration file
+  - name: Ansible replace C2IP with real c2's ip address
+    replace:
+      path: /etc/apache2/sites-available/{{ config_file }}
+      regexp: 'C2IP'
+      replace: "{{ C2IP }}"
+
+  # Replace placeholder 'PUBIP' with the actual public IP address in the configuration file
+  - name: Ansible replace PUBIP
+    replace:
+      path: /etc/apache2/sites-available/{{ config_file }}
+      regexp: 'PUBIP'
+      replace: "{{ PUBIP }}"
+
+  # Replace placeholder 'REDIRECT_URL' with the actual URL to redirect traffic to in the configuration file
+  - name: Ansible replace REDIRECT_URL
+    replace:
+      path: /etc/apache2/sites-available/{{ config_file }}
+      regexp: 'REDIRECT_URL'
+      replace: "{{ REDIRECT_URL }}"
+
+  # Replace placeholder 'MY_URI' with the actual URI path in the configuration file
+  - name: Ansible replace MY_URI
+    replace:
+      path: /etc/apache2/sites-available/{{ config_file }}
+      regexp: 'MY_URI'
+      replace: "{{ MY_URI }}"
+
+  # Replace placeholder 'HOSTNAME' with the actual hostname in the configuration file
+  - name: Ansible replace HOSTNAME
+    replace:
+      path: /etc/apache2/sites-available/{{ config_file }}
+      regexp: 'HOSTNAME'
+      replace: "{{ HOSTNAME }}"
+
+  # Enable the new site configuration by creating a symbolic link from 'sites-available' to 'sites-enabled'
+  - name: Enabling our configuration
+    shell:
+      cmd: a2ensite {{ config_file }}
+      chdir: /etc/apache2/sites-available
+
+  # Reload Apache to apply the new configuration changes
+  - name: Reload Apache
+    service: 
+      name: apache2
+      state: reloaded

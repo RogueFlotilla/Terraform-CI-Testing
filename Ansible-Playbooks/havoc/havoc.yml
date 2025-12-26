@@ -1,0 +1,99 @@
+  # Install Havoc C2 Framework (OPEN SOURCE)
+  # https://havocframework.com/docs/installation
+  # Note: Requires t2.large instance type in AWS due to recommended RAM requirement
+---
+- name: Deploy Havoc C2 server without Docker
+  hosts: all
+  become: yes
+  vars:
+    havoc_repo: "https://github.com/HavocFramework/Havoc.git"
+    havoc_install_dir: "~/havoc"
+    golang_version: "1.18"
+    havoc_port: "40056"
+  tasks:
+    - name: Update and upgrade the system
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Install required packages
+      apt:
+        name:
+          - git
+          - build-essential
+          - curl
+          - libssl-dev
+          - pkg-config
+          - python3
+          - python3-pip
+          - python3-venv
+          - ufw
+        state: present
+
+    - name: Download and install Go
+      shell: |
+        curl -LO https://golang.org/dl/go{{ golang_version }}.linux-amd64.tar.gz
+        tar -C /usr/local -xzf go{{ golang_version }}.linux-amd64.tar.gz
+        rm go{{ golang_version }}.linux-amd64.tar.gz
+      args:
+        creates: /usr/local/go
+
+    - name: Add Go to PATH
+      lineinfile:
+        path: /etc/profile.d/go.sh
+        line: |
+          export PATH=$PATH:/usr/local/go/bin
+        create: yes
+        mode: '0755'
+
+    - name: Load Go environment variables
+      shell: source /etc/profile.d/go.sh
+      args:
+        executable: /bin/bash
+
+    - name: Clone Havoc repository
+      git:
+        repo: "{{ havoc_repo }}"
+        dest: "{{ havoc_install_dir }}"
+        update: no
+
+    - name: Build Havoc C2 server
+      shell: |
+        source /etc/profile.d/go.sh
+        cd {{ havoc_install_dir }}
+        make all
+      args:
+        chdir: "{{ havoc_install_dir }}"
+        creates: "{{ havoc_install_dir }}/teamserver"
+
+    - name: Create a systemd service for Havoc
+      copy:
+        dest: /etc/systemd/system/havoc.service
+        content: |
+          [Unit]
+          Description=Havoc C2 Server
+          After=network.target
+
+          [Service]
+          ExecStart={{ havoc_install_dir }}/teamserver --port {{ havoc_port }}
+          WorkingDirectory={{ havoc_install_dir }}
+          Restart=on-failure
+          User=root
+
+          [Install]
+          WantedBy=multi-user.target
+
+    - name: Reload systemd daemon
+      shell: systemctl daemon-reload
+
+    - name: Enable and start Havoc service
+      service:
+        name: havoc
+        state: started
+        enabled: yes
+
+    - name: Open firewall for Havoc server port
+      ufw:
+        rule: allow
+        port: "{{ havoc_port }}"
+        proto: tcp

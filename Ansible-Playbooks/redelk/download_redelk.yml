@@ -1,0 +1,50 @@
+# SUMMARY:
+# This Ansible file ...
+
+# ATTRIBUTION:
+# This code is based on the original work by Arun 'dazzyddos' Nair, Aravind 'Resillion', and
+# Soumyadeep 'CRED', available at https://github.com/dazzyddos/HSC24RedTeamInfra. It has been
+# merged, modified, and expanded on by Natasha 'geeberish' Menon and Richard 'rmf89685' Flores,
+# under the guidance of Dr. Alex 'ambaziir' Mbaziira, to fulfill the requirements of this research
+# project. Current project repository available at https://github.com/rmf89685/Redteamer. Project
+# repository pre-merge available at https://github.com/rmf89685/RT2024-Research-Project-AWS.
+---
+- name: Install RedELK with Ansible
+  hosts: localhost # This playbook will run on the local machine, which acts as the bastion host
+  connection: local # Use local connection to execute tasks on the localhost
+  become: yes  # Use sudo to execute tasks that require elevated privileges
+  vars:
+    # URL of the RedELK repository to be cloned
+    redelk_repo: "https://github.com/outflanknl/RedELK"
+    # Directory where the RedELK repository will be cloned
+    redelk_install_dir: "/home/ubuntu/RedELK"
+    # Path to the local configuration file to be moved to the RedELK directory
+    config_file_source: "/tmp/redelkconfig.cnf"  # Source file path on the local machine
+    # Destination path for the configuration file within the RedELK directory
+    config_file_dest: "{{ redelk_install_dir }}/certs/config.cnf"
+
+  tasks:
+    # Clone the RedELK repository from GitHub into the specified directory
+    # This will fetch the repository contents to the local RedELK directory
+    - name: Clone RedELK repository
+      ansible.builtin.git:
+        repo: "{{ redelk_repo }}"
+        dest: "{{ redelk_install_dir }}"
+        clone: yes # Clone the repository if it does not already exist
+        update: yes # Update the repository if it already exists
+
+    # Move the configuration file from the local source path to the destination path within the RedELK directory
+    # The 'remote_src: no' indicates that the source file is located on the local machine
+    - name: Move configuration file to RedELK directory
+      ansible.builtin.copy:
+        src: "{{ config_file_source }}"
+        dest: "{{ config_file_dest }}"
+        remote_src: no  # The source file is on the local machine; set to 'yes' if the file is on the remote machine
+
+    # Execute the initial setup script located in the RedELK directory
+    # This script likely configures RedELK using the provided configuration file
+    - name: Run initial setup script
+      ansible.builtin.shell:
+        cmd: "./initial-setup.sh certs/config.cnf"
+        chdir: "{{ redelk_install_dir }}" # Change to the RedELK directory before running the script
+        executable: /bin/bash # Use bash to execute the script
