@@ -110,6 +110,13 @@ jobs:
           output_format: json
           output_file_path: ${{ env.TF_DIR }}/checkov-report.json
       
+      - name: DEBUG Print Checkov Report
+        run: |
+          echo "Listing Directory Contents: "
+          ls -la ${{ env.TF_DIR }}
+          echo "Printing Checkov Report"
+          cat ${{ env.TF_DIR }}/checkov-report.json
+      
       - name: (Checkov) Count Findings by Severity
         id: checkov-count
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates
@@ -142,12 +149,12 @@ jobs:
             echo "medium=" >> $GITHUB_OUTPUT        # null
             echo "high=" >> $GITHUB_OUTPUT          # null
             echo "total=" >> $GITHUB_OUTPUT         # null
-            echo "pass=$(jq '.results.summary.passed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
-            echo "fail=$(jq '.results..summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
+            echo "pass=$(jq '.summary.passed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
+            echo "fail=$(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)" >> $GITHUB_OUTPUT
 
             echo "::notice:: I used pass/fail!"
-            echo "fails  $(jq -r '.results.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
-            echo "passes $(jq -r '.results.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
+            echo "fails  $(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
+            echo "passes $(jq '.summary.failed' ${{ env.TF_DIR }}/checkov-report.json)"
           # }
           fi
 
