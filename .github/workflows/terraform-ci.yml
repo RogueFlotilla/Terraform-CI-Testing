@@ -99,10 +99,8 @@ jobs:
         uses: bridgecrewio/checkov-action@v12
         if: always() # Ensure Checkov runs even if tfsec fails
         continue-on-error: true
-        env:
-          BC_API_KEY: "" # Pull from secrets manager if available
-          BC_API_URL: ""
         with:
+          api-key: "" # Pull from secrets manager if available
           directory: ${{ env.TF_DIR }}
           output_format: json
           output_file_path: ${{ env.TF_DIR }}/checkov-report
