@@ -109,7 +109,7 @@ jobs:
           api-key: "" # Pull from secrets manager if available
           directory: ${{ env.TF_DIR }}
           output_format: csv,json # Cannot output JSON and CSV at same time
-          output_file_path: ${{ env.TF_DIR }}/checkov-report,${{ env.TF_DIR }}/checkov-report/csv
+          output_file_path: ${{ env.TF_DIR }}/checkov-report
         
       # - name: Pull Checkov GitHub Action Docker Container and Run for JSON
       #   uses: bridgecrewio/checkov-action@v12
