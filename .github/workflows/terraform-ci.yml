@@ -156,51 +156,46 @@ jobs:
           #   echo "fail=$(jq '.summary.failed' $CHECKOV_REPORT)" >> $GITHUB_OUTPUT
           # fi
 
-          - name: (Checkov) Count Findings by Severity
-            id: checkov-count
-            env:
-              CHECKOV_REPORT: ${{ env.TF_DIR }}/checkov-report/results_json.json
-            run: |
-              # Does ANY failed check across ALL check types have a populated severity?
-              if jq -e '
-                .[]?
-                | .results.failed_checks[]?
-                | select(.severity != null)
-              ' "$CHECKOV_REPORT" >/dev/null; then
+          # Does ANY failed check across ALL check types have a populated severity?
+          if jq -e '
+            .[]?
+            | .results.failed_checks[]?
+            | select(.severity != null)
+          ' "$CHECKOV_REPORT" >/dev/null; then
 
-                INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")] | length' "$CHECKOV_REPORT")
-                LOW=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="LOW")] | length' "$CHECKOV_REPORT")
-                MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "$CHECKOV_REPORT")
-                HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")] | length' "$CHECKOV_REPORT")
-                TOTAL=$((LOW + MEDIUM + HIGH))
+            INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")] | length' "$CHECKOV_REPORT")
+            LOW=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="LOW")] | length' "$CHECKOV_REPORT")
+            MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "$CHECKOV_REPORT")
+            HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")] | length' "$CHECKOV_REPORT")
+            TOTAL=$((LOW + MEDIUM + HIGH))
 
-                {
-                  echo "info=$INFO"
-                  echo "low=$LOW"
-                  echo "medium=$MEDIUM"
-                  echo "high=$HIGH"
-                  echo "total=$TOTAL"
-                  echo "pass="
-                  echo "fail="
-                } >> "$GITHUB_OUTPUT"
+            {
+              echo "info=$INFO"
+              echo "low=$LOW"
+              echo "medium=$MEDIUM"
+              echo "high=$HIGH"
+              echo "total=$TOTAL"
+              echo "pass="
+              echo "fail="
+            } >> "$GITHUB_OUTPUT"
 
-              else
-                echo "::notice:: Checkov severity scoring not populated. Falling back to pass/fail."
-                echo "::notice:: A Checkov API key was likely not provided."
+          else
+            echo "::notice:: Checkov severity scoring not populated. Falling back to pass/fail."
+            echo "::notice:: A Checkov API key was likely not provided."
 
-                PASSED=$(jq '[.[] | .summary.passed] | add' "$CHECKOV_REPORT")
-                FAILED=$(jq '[.[] | .summary.failed] | add' "$CHECKOV_REPORT")
+            PASSED=$(jq '[.[] | .summary.passed] | add' "$CHECKOV_REPORT")
+            FAILED=$(jq '[.[] | .summary.failed] | add' "$CHECKOV_REPORT")
 
-                {
-                  echo "info="
-                  echo "low="
-                  echo "medium="
-                  echo "high="
-                  echo "total="
-                  echo "pass=$PASSED"
-                  echo "fail=$FAILED"
-                } >> "$GITHUB_OUTPUT"
-              fi
+            {
+              echo "info="
+              echo "low="
+              echo "medium="
+              echo "high="
+              echo "total="
+              echo "pass=$PASSED"
+              echo "fail=$FAILED"
+            } >> "$GITHUB_OUTPUT"
+          fi
       
       - name: (Checkov) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
