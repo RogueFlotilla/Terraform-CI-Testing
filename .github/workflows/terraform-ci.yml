@@ -37,6 +37,20 @@ jobs:
           mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
 
       # ---------- TFSEC ----------
+      - name: Run tfsec scan
+        uses: aquasecurity/tfsec-action@v1
+        with:
+          working_directory: ${{ env.TF_DIR }}
+          format: json
+          additional_args: --out tfsec-report/action_results.json
+
+      - name: Ensure tfsec report exists
+        run: |
+          if [[ ! -f "tfsec-report/action_results.json" ]]; then
+            echo "::error:: tfsec report missing"
+            exit 1
+          fi
+
       - name: Install tfsec with SHA256 & GPG Verification and Run
         # Was unable to determine a method for passing results from GitHub Action (aquasecurity/tfsec-action@v1.0.3) to future jobs
         # This manual run is intended to generate JSON output for logic to conditionally warn or fail depending on environment
@@ -62,6 +76,13 @@ jobs:
 
           # Run tfsec
           tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report/results --soft-fail
+
+      - name: (tfsec) Ensure Vulnerability Report was Generated
+        run: | # Due requirement for conditionally failing, previous job will not fail pipeline from errors
+          if [[ ! -f "${TF_DIR}/tfsec-report/results.json" ]]; then
+            echo "::error:: tfsec scan report was not generated and cannot be processed. Blocking deployment to all environments."
+            exit 1
+          fi
 
       - name: (tfsec) Count Findings by Severity
         id: tfsec-count
@@ -122,55 +143,27 @@ jobs:
           output_format: csv # creates multiple CSV files
           output_file_path: ${{ env.TF_DIR }}/checkov-report/csv
       
+      - name: (checkov) Ensure Vulnerability Report was Generated
+        run: | # Due requirement for conditionally failing, previous job will not fail pipeline from errors
+          if [[ ! -f "${TF_DIR}/checkov-report/results_json.json" ]]; then
+            echo "::error:: Checkov scan report was not generated and cannot be processed. Blocking deployment to all environments."
+            exit 1
+          fi
+
       - name: (Checkov) Count Findings by Severity
         id: checkov-count
         env:
           CHECKOV_REPORT: ${{ env.TF_DIR }}/checkov-report/results_json.json
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates                   
-          # # Count by severity (if API key provided)
-          # if jq -e '.results.failed_checks[] | select(.severity != null)' $CHECKOV_REPORT >/dev/null; then 
-          #   INFO=$(jq '[.results.failed_checks[] | select(.severity=="INFO")] | length' $CHECKOV_REPORT)
-          #   LOW=$(jq '[.results.failed_checks[] | select(.severity=="LOW")] | length' $CHECKOV_REPORT)
-          #   MEDIUM=$(jq '[.results.failed_checks[] | select(.severity=="MEDIUM")] | length' $CHECKOV_REPORT)
-          #   HIGH=$(jq '[.results.failed_checks[] | select(.severity=="HIGH")] | length' $CHECKOV_REPORT)
-          #   TOTAL=$((LOW + MEDIUM + HIGH))
-
-          #   echo "info=$INFO" >> $GITHUB_OUTPUT
-          #   echo "low=$LOW" >> $GITHUB_OUTPUT
-          #   echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
-          #   echo "high=$HIGH" >> $GITHUB_OUTPUT
-          #   echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          #   echo "pass=" >> $GITHUB_OUTPUT          # null
-          #   echo "fail=" >> $GITHUB_OUTPUT          # null
-
-          # else # Otherwise count by pass/fail if API key not provided
-          #   echo "::notice:: Checkov severity scoring not populated. Checkov analysis falling back to simple pass/fail."
-          #   echo "::notice:: A Checkov API key was likely not provided, resulting in Checkov severity scoring of null."
-
-          #   echo "info=" >> $GITHUB_OUTPUT          # null
-          #   echo "low=" >> $GITHUB_OUTPUT           # null
-          #   echo "medium=" >> $GITHUB_OUTPUT        # null
-          #   echo "high=" >> $GITHUB_OUTPUT          # null
-          #   echo "total=" >> $GITHUB_OUTPUT         # null
-          #   echo "pass=$(jq '.summary.passed' $CHECKOV_REPORT)" >> $GITHUB_OUTPUT
-          #   echo "fail=$(jq '.summary.failed' $CHECKOV_REPORT)" >> $GITHUB_OUTPUT
-          # fi
-
-          # Does ANY failed check across ALL check types have a populated severity?
           #!/usr/bin/env bash
           set -euo pipefail
 
-          if jq -e '
-            .[]?
-            | .results.failed_checks[]?
-            | select(.severity != null and .severity != "")
-          ' "$CHECKOV_REPORT" >/dev/null; then
+          if jq -e '.[]? | .results.failed_checks[]? | select(.severity != null and .severity != "")' "$CHECKOV_REPORT" >/dev/null; then
 
             INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")]   | length' "$CHECKOV_REPORT")
             LOW=$(jq  '[.[] | .results.failed_checks[]? | select(.severity=="LOW")]    | length' "$CHECKOV_REPORT")
             MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "$CHECKOV_REPORT")
             HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")]   | length' "$CHECKOV_REPORT")
-
             TOTAL=$((LOW + MEDIUM + HIGH))
 
             {
@@ -200,7 +193,6 @@ jobs:
               echo "fail=$FAILED"
             } >> "$GITHUB_OUTPUT"
           fi
-
       
       - name: (Checkov) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
@@ -222,18 +214,14 @@ jobs:
           echo "::error:: Vulnerabilities or FAILED checks detected by Checkov! Blocking deployment to unknown environment."
           exit 1
 
-      # ---------- ARTIFACT UPLOAD ----------
+      # ---------- ARTIFACT UPLOAD ----------     
       - name: Set Timestamp
-        if: always() # upload artifacts even if some job steps fail
+        if: always() # required for artifact upload
         run: echo "TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_ENV
-      
-      - name: DEBUG Output Directory Contents
-        if: always()
-        run: ls -la -R ${{ env.TF_DIR }}
 
       - name: Upload Vulnerability Scan Reports
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() # upload artifacts even if some job steps fail
         with:
           name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
           path: |
