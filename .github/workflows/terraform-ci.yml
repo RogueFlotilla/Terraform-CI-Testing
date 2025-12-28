@@ -46,7 +46,7 @@ jobs:
 
       - name: Ensure tfsec report exists
         run: |
-          if [[ ! -f "tfsec-report/action_results.json" ]]; then
+          if [[ ! -f "action_results.json" ]]; then
             echo "::error:: tfsec report missing"
             exit 1
           fi
