@@ -38,7 +38,7 @@ jobs:
 
       # ---------- TFSEC ----------
       - name: Run tfsec scan
-        uses: aquasecurity/tfsec-action@v1
+        uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: ${{ env.TF_DIR }}
           format: json
