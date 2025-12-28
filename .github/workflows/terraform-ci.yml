@@ -42,7 +42,7 @@ jobs:
         with:
           working_directory: ${{ env.TF_DIR }}
           format: json
-          additional_args: --out tfsec-report/action_results.json
+          additional_args: --out action_results.json
 
       - name: Ensure tfsec report exists
         run: |
