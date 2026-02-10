@@ -37,19 +37,14 @@ jobs:
           mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
 
       # ---------- TFSEC ----------
-      # - name: Run tfsec scan
-      #   uses: aquasecurity/tfsec-action@v1.0.3
-      #   with:
-      #     working_directory: ${{ env.TF_DIR }}
-      #     format: json
-      #     additional_args: --out action_results.json
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          working_directory: ${{ env.TF_DIR }}
+          tfsec_args: --tfcars-file=${{ env.TF.DIR }}/env/${{ inputs.env }}/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
+        continue-on-error: true
 
-      # - name: Ensure tfsec report exists
-      #   run: |
-      #     if [[ ! -f "action_results.json" ]]; then
-      #       echo "::error:: tfsec report missing"
-      #       exit 1
-      #     fi
 
       - name: Install tfsec with SHA256 & GPG Verification and Run
         # Was unable to determine a method for passing results from GitHub Action (aquasecurity/tfsec-action@v1.0.3) to future jobs
