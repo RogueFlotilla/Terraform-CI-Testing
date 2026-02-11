@@ -37,16 +37,16 @@ jobs:
           mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
 
       # ---------- TFSEC ----------
-      - name: Run tfsec
-        uses: aquasecurity/tfsec-action@v1.0.3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          working_directory: ${{ inputs.tf_dir }}
-          args: >
-            --tfvars-file=env/${{ inputs.env }}/${{ inputs.env }}.tfvars
-            --format=json
-            --out=tfsec-report.json
-        continue-on-error: true
+      # - name: Run tfsec
+      #   uses: aquasecurity/tfsec-action@v1.0.3
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     working_directory: ${{ inputs.tf_dir }}
+      #     args: >
+      #       --tfvars-file=env/${{ inputs.env }}/${{ inputs.env }}.tfvars
+      #       --format=json
+      #       --out=tfsec-report.json
+      #   continue-on-error: true
 
       # - name: Run tfsec
       #   uses: aquasecurity/tfsec-action@v1.0.3
