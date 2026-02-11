@@ -236,7 +236,7 @@ jobs:
         with:
           name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
           path: |
-            ${{ env.TF_DIR }}/tfsec-report/*
+            ${{ env.TF_DIR }}/tfsec-report*
             ${{ env.TF_DIR }}/checkov-report/*
           retention-days: 1
       
