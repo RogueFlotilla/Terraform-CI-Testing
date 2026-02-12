@@ -37,6 +37,21 @@ jobs:
           mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
 
       # ---------- TFSEC ----------
+      - name: Run Trivy scanner
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-ref: ${{ env.TF_DIR }}
+          scan-type: config
+          scanners: misconfig,secret,license
+          # severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
+          tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}/${{ inputs.env }}.tfvars
+          # tf-vars: env/${{ inputs.env }}/${{ inputs.env }}.tfvars
+          hide-progress: false
+          format: json
+          output: ${{ env.TF_DIR }}/trivy.json
+          exit-code: 0
+
+      
       # - name: Run tfsec
       #   uses: aquasecurity/tfsec-action@v1.0.3
       #   with:
@@ -75,7 +90,8 @@ jobs:
           curl -sSL -o tfsec_checksums.txt https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec_checksums.txt
           
           # Verify SHA256 checksum
-          grep 'tfsec-linux-amd64' tfsec_checksums.txt | sed 's| tfsec-linux-amd64| tfsec-linux-amd64|' | sha256sum -c -
+          # grep 'tfsec-linux-amd64' tfsec_checksums.txt | sed 's| tfsec-linux-amd64| tfsec-linux-amd64|' | sha256sum -c -
+          grep tfsec-linux-amd64 tfsec_checksums.txt | sha256sum -c -
 
           # Verify GPG Signature
           gpg --keyserver keyserver.ubuntu.com --recv-keys D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE
@@ -236,7 +252,8 @@ jobs:
         with:
           name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
           path: |
-            ${{ inputs.tf_dir }}/tfsec-report.json
+            ${{ inputs.tf_dir }}/trivy.json
+            # ${{ inputs.tf_dir }}/tfsec-report.json
             ${{ env.TF_DIR }}/tfsec-report/*
             ${{ env.TF_DIR }}/checkov-report/*
           retention-days: 1
