@@ -44,7 +44,7 @@ jobs:
           scan-type: config
           scanners: misconfig,secret,license
           # severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
-          tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}/${{ inputs.env }}.tfvars
+          tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars
           # tf-vars: env/${{ inputs.env }}/${{ inputs.env }}.tfvars
           hide-progress: false
           format: json
