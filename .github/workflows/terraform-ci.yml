@@ -49,7 +49,7 @@ jobs:
           format: json
           output: ${{ env.TF_DIR }}/trivy-report/trivy.json
           severity: 'CRITICAL'
-          exit-code: 0
+          exit-code: 1
       
       # - name: Run tfsec
       #   uses: aquasecurity/tfsec-action@v1.0.3
