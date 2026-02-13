@@ -33,6 +33,7 @@ jobs:
       - name: Create Report Directories
         if: always() # Needed if prior step fail to ensure vulnerability scans still run
         run: |
+          mkdir ${{ env.TF_DIR }}/trivy-report
           mkdir ${{ env.TF_DIR }}/tfsec-report
           mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
 
@@ -43,14 +44,12 @@ jobs:
           scan-ref: ${{ env.TF_DIR }}
           scan-type: config
           scanners: misconfig,secret,license
-          # severity: UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL
           tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars
-          # tf-vars: env/${{ inputs.env }}/${{ inputs.env }}.tfvars
           hide-progress: false
           format: json
-          output: ${{ env.TF_DIR }}/trivy.json
+          output: ${{ env.TF_DIR }}/trivy-report/trivy.json
+          severity: 'CRITICAL'
           exit-code: 0
-
       
       # - name: Run tfsec
       #   uses: aquasecurity/tfsec-action@v1.0.3
@@ -105,7 +104,7 @@ jobs:
           tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report/results --soft-fail
 
       - name: (tfsec) Ensure Vulnerability Report was Generated
-        run: | # Due requirement for conditionally failing, previous job will not fail pipeline from errors
+        run: | # Due to requirement for conditionally failing, previous job will not fail pipeline from errors
           if [[ ! -f "${TF_DIR}/tfsec-report/results.json" ]]; then
             echo "::error:: tfsec scan report was not generated and cannot be processed. Blocking deployment to all environments."
             exit 1
@@ -252,8 +251,7 @@ jobs:
         with:
           name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
           path: |
-            ${{ inputs.tf_dir }}/trivy.json
-            # ${{ inputs.tf_dir }}/tfsec-report.json
+            ${{ env.TF_DIR }}/trivy-report/*
             ${{ env.TF_DIR }}/tfsec-report/*
             ${{ env.TF_DIR }}/checkov-report/*
           retention-days: 1
