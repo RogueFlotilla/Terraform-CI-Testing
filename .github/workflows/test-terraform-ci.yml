@@ -14,7 +14,7 @@ on:
 
 jobs:
   call-terraform-ci:
-    uses: ./.github/workflows/terraform-ci.yml
+    uses: ./.github/workflows/terraform-ci-2.yml
     with:
       env: ${{ inputs.env }}
       tf_dir: ${{ inputs.tf_dir }}
