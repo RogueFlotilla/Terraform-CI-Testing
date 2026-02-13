@@ -39,7 +39,7 @@ jobs:
       - name: Create Report Directories
         if: always() # Needed if prior step fail to ensure vulnerability scans still run
         run: |
-          mkdir ${{ env.TF_DIR }}/trivy-report
+          mkdir ${{ env.TF_DIR }}/json-trivy-report
           mkdir ${{ env.TF_DIR }}/tfsec-report
           mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
 
@@ -53,7 +53,7 @@ jobs:
           tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars
           hide-progress: false
           format: json
-          output: ${{ env.TF_DIR }}/trivy-report/trivy.json
+          output: ${{ env.TF_DIR }}/json-trivy-report/trivy.json
           severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN'
           exit-code: 1
       
@@ -257,7 +257,7 @@ jobs:
         with:
           name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
           path: |
-            ${{ env.TF_DIR }}/trivy-report/*
+            ${{ env.TF_DIR }}/json-trivy-report/*
             ${{ env.TF_DIR }}/tfsec-report/*
             ${{ env.TF_DIR }}/checkov-report/*
           retention-days: 1

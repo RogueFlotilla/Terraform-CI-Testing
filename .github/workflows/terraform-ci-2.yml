@@ -29,6 +29,10 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+      
+      - name: Create Report Directory
+        run: |
+          mkdir ${{ env.TF_DIR }}/trivy-reports
 
       - name: Run Trivy Scanner
         uses: aquasecurity/trivy-action@0.33.1
@@ -39,13 +43,13 @@ jobs:
           tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars
           hide-progress: false
           format: json
-          output: ${{ env.TF_DIR }}/trivy_report.json
+          output: ${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json
           severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN' # limiting severity for fail excludes from report
           exit-code: 0
       
       - name: Ensure Trivy Report was Generated
         run: | # Due to requirement for conditionally failing, previous job will not fail pipeline from errors
-          if [[ ! -f "${{ env.TF_DIR }}/trivy_report.json" ]]; then
+          if [[ ! -f "${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json" ]]; then
             echo "::error:: trivy scan report was not generated and cannot be processed. Blocking deployment to all environments."
             exit 1
           fi
@@ -53,7 +57,7 @@ jobs:
       - name: Count Trivy Findings by Severity
         id: trivy-count
         env:
-          TRIVY_REPORT: ${{ env.TF_DIR }}/trivy_report.json
+          TRIVY_REPORT: ${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json
         run: |
           LOW=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="LOW")] | length' $TRIVY_REPORT)
           MEDIUM=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="MEDIUM")] | length' $TRIVY_REPORT)
@@ -61,46 +65,51 @@ jobs:
           CRITICAL=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="CRITICAL")] | length' $TRIVY_REPORT)
           TOTAL=$((LOW + MEDIUM + HIGH + CRITICAL))
 
-          echo $LOW
-          echo $MEDIUM
-          echo $HIGH
-          echo $CRITICAL
-          echo $TOTAL
-
           echo "low=$LOW" >> $GITHUB_OUTPUT
           echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
           echo "high=$HIGH" >> $GITHUB_OUTPUT
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       
+      - name: Conditionally Warn Pipeline in Development or Test Environments
+        # Intentionally declaring dev and test so any future environments fail by default
+        if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (steps.trivy-count.outputs.high > 0 || steps.trivy-count.outputs.critical > 0) }}
+        run: |
+          echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by Trivy! Deployment permitted to dev/test environment."
+
+      - name: Conditionally Fail Pipeline in Production Environment
+        # High and/or Critical vulnerabilities will block deployment to production
+        if: ${{ (inputs.env == 'prod') && (steps.trivy-count.outputs.high > 0 || steps.trivy-count.outputs.critical > 0) }}
+        run: |
+          echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by Trivy! Blocking production deployment."
+          exit 1
+      
+      - name: Conditionally Fail Pipeline in any Other Environments
+        # Creates a fail by default condition if any vulnerabilities are detected for environments not explicitly listed
+        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (steps.trivy-count.outputs.total > 0) }}
+        run: |
+          echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by Trivy! Blocking deployment to unknown environment."
+          exit 1
+      
+      - name: Create CSV Report
+        env:
+          DIRECTORY: ${{ env.TF_DIR }}/trivy-reports
+        run: |
+          trivy convert --format csv --output $DIRECTORY/trivy-report-csv.csv $DIRECTORY/trivy-report-json.json
+      
       - name: Upload Trivy Report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: trivy-report
-          path: ${{ env.TF_DIR }}
-      
-      - name: (trivy) Conditionally Warn Pipeline in Development or Test Environments
-        # Intentionally declaring dev and test so any future environments fail by default
-        if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (steps.trivy-count.outputs.high > 0 || steps.trivy-count.outputs.critical > 0) }}
-        run: |
-          echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Deployment permitted to dev/test environment."
+          name: trivy-reports
+          path: ${{ env.TF_DIR }}/trivy-reports/*
 
-      - name: (trivy) Conditionally Fail Pipeline in Production Environment
-        # High and/or Critical vulnerabilities will block deployment to production
-        if: ${{ (inputs.env == 'prod') && (steps.trivy-count.outputs.high > 0 || steps.trivy-count.outputs.critical > 0) }}
-        run: |
-          echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking production deployment."
-          exit 1
+  checkov:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
       
-      - name: (trivy) Conditionally Fail Pipeline in any Other Environments
-        # Creates a fail by default condition if any vulnerabilities are detected for environments not explicitly listed
-        if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (steps.trivy-count.outputs.total > 0) }}
-        run: |
-          echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking deployment to unknown environment."
-          exit 1
-      
-      # ---------- CHECKOV ----------
       - name: Pull Checkov GitHub Action Docker Container and Run for JSON
         uses: bridgecrewio/checkov-action@v12
         if: always() # Ensure Checkov runs even if tfsec fails
@@ -201,7 +210,7 @@ jobs:
       - name: Create Report Directories
         if: always() # Needed if prior step fail to ensure vulnerability scans still run
         run: |
-          mkdir ${{ env.TF_DIR }}/trivy-report
+          mkdir ${{ env.TF_DIR }}/json-trivy-report
           mkdir ${{ env.TF_DIR }}/tfsec-report
           mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
           
@@ -211,7 +220,7 @@ jobs:
         with:
           name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
           path: |
-            ${{ env.TF_DIR }}/trivy-report/*
+            ${{ env.TF_DIR }}/json-trivy-report/*
             ${{ env.TF_DIR }}/tfsec-report/*
             ${{ env.TF_DIR }}/checkov-report/*
           retention-days: 1
