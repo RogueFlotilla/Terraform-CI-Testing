@@ -72,6 +72,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: trivy-report
+          path: /
       
       - name: (trivy) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
