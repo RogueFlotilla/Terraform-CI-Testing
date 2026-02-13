@@ -115,7 +115,6 @@ jobs:
                 else .[$k] end
               ] | @csv)
           ' $DIRECTORY/trivy-report-json.json > $DIRECTORY/trivy-report-csv.csv
-        retention-days: 1
 
       - name: Upload Trivy Report
         if: always()
@@ -123,6 +122,7 @@ jobs:
         with:
           name: trivy-reports
           path: ${{ env.TF_DIR }}/trivy-reports/*
+          retention-days: 1
 
   checkov:
     runs-on: ubuntu-latest
