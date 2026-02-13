@@ -96,15 +96,20 @@ jobs:
           DIRECTORY: ${{ env.TF_DIR }}/trivy-reports
         run: |
           jq -r '
-            # Extract the first vulnerability to get headers
-            ( .Results[]?.Vulnerabilities[]? | keys_unsorted ) as $keys |
-            # Output CSV header
+            # Get all keys from first Misconfiguration (top-level fields only)
+            (.Results[]?.Misconfigurations[]? | keys_unsorted) as $keys |
+            # Print CSV header
             ($keys | @csv),
-            # Output CSV rows
-            (.Results[]?.Vulnerabilities[]? | [ $keys[] as $k | .[$k] ] | @csv)
+            # Print each row
+            (.Results[]?.Misconfigurations[]? | [ $keys[] as $k |
+                # Convert arrays to semicolon-separated strings, objects to JSON string
+                if .[$k] == null then ""
+                elif type == "object" then (.[ $k ] | @json)
+                elif type == "array" then (.[ $k ] | join("; "))
+                else .[$k] end
+              ] | @csv)
           ' $DIRECTORY/trivy-report-json.json > $DIRECTORY/trivy-report-csv.csv
 
-      
       - name: Upload Trivy Report
         if: always()
         uses: actions/upload-artifact@v4
