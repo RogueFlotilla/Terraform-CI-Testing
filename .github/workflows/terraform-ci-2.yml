@@ -61,6 +61,12 @@ jobs:
           CRITICAL=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="CRITICAL")] | length' $TRIVY_REPORT)
           TOTAL=$((LOW + MEDIUM + HIGH + CRITICAL))
 
+          echo $LOW
+          echo $MEDIUM
+          echo $HIGH
+          echo $CRITICAL
+          echo $TOTAL
+
           echo "low=$LOW" >> $GITHUB_OUTPUT
           echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
           echo "high=$HIGH" >> $GITHUB_OUTPUT
@@ -72,7 +78,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: trivy-report
-          path: /
+          path: ${{ env.TF_DIR }}
       
       - name: (trivy) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
