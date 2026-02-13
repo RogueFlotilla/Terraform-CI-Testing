@@ -39,13 +39,13 @@ jobs:
           tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars
           hide-progress: false
           format: json
-          output: trivy_report.json
+          output: ${{ env.TF_DIR }}/trivy_report.json
           severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN' # limiting severity for fail excludes from report
           exit-code: 0
       
       - name: Ensure Trivy Report was Generated
         run: | # Due to requirement for conditionally failing, previous job will not fail pipeline from errors
-          if [[ ! -f "trivy_report.json" ]]; then
+          if [[ ! -f "${{ env.TF_DIR }}/trivy_report.json" ]]; then
             echo "::error:: trivy scan report was not generated and cannot be processed. Blocking deployment to all environments."
             exit 1
           fi
@@ -53,7 +53,7 @@ jobs:
       - name: Count Trivy Findings by Severity
         id: trivy-count
         env:
-          TRIVY_REPORT: trivy_report.json
+          TRIVY_REPORT: ${{ env.TF_DIR }}/trivy_report.json
         run: |
           LOW=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="LOW")] | length' $TRIVY_REPORT)
           MEDIUM=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="MEDIUM")] | length' $TRIVY_REPORT)
