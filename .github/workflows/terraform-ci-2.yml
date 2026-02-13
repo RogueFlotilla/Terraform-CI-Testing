@@ -90,6 +90,12 @@ jobs:
         run: |
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by Trivy! Blocking deployment to unknown environment."
           exit 1
+      
+      - name: Create Trivy Table Report
+        env: 
+          DIRECTORY: ${{ env.TF_DIR }}/trivy-reports
+        run: |
+          trivy convert --format table --ouput $DIRECTORY/trivy-report-table.txt $DIRECTORY/trivy-report-json.json
 
       - name: Create Trivy CSV Report
         env:
@@ -109,6 +115,7 @@ jobs:
                 else .[$k] end
               ] | @csv)
           ' $DIRECTORY/trivy-report-json.json > $DIRECTORY/trivy-report-csv.csv
+        retention-days: 1
 
       - name: Upload Trivy Report
         if: always()
