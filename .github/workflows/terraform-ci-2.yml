@@ -24,27 +24,13 @@ env:
   AWS_REGION: us-east-1
 
 jobs:
-  trivy scan:
+  trivy:
     runs-on: ubuntu-latest
-    # env:
-    #   TF_INPUT: false
-    #   TF_IN_AUTOMATION: true
-    #   TF_DIR: ${{ inputs.tf_dir }}
-    #   AWS_REGION: us-east-1
-
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Create Report Directories
-        if: always() # Needed if prior step fail to ensure vulnerability scans still run
-        run: |
-          mkdir ${{ env.TF_DIR }}/trivy-report
-          mkdir ${{ env.TF_DIR }}/tfsec-report
-          mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
-
-      # ---------- TFSEC ----------
-      - name: Run Trivy scanner
+      - name: Run Trivy Scanner
         uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-ref: ${{ env.TF_DIR }}
@@ -53,78 +39,26 @@ jobs:
           tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars
           hide-progress: false
           format: json
-          output: ${{ env.TF_DIR }}/trivy-report/trivy.json
-          severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN'
-          exit-code: 1
+          output: trivy_report.json
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN' # limiting severity for fail excludes from report
+          exit-code: 0
       
-      # - name: Run tfsec
-      #   uses: aquasecurity/tfsec-action@v1.0.3
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     working_directory: ${{ inputs.tf_dir }}
-      #     args: >
-      #       --tfvars-file=env/${{ inputs.env }}/${{ inputs.env }}.tfvars
-      #       --format=json
-      #       --out=tfsec-report.json
-      #   continue-on-error: true
-
-      # - name: Run tfsec
-      #   uses: aquasecurity/tfsec-action@v1.0.3
-      #   with:
-      #     github_token: ${{ secrets.GITHUB_TOKEN }}
-      #     working_directory: ${{ env.TF_DIR }}
-      #     args: --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}/${{ inputs.env }}.tfvars --format=json --out=tfsec-report.json
-      #   continue-on-error: true
-
-
-      - name: Install tfsec with SHA256 & GPG Verification and Run
-        # Was unable to determine a method for passing results from GitHub Action (aquasecurity/tfsec-action@v1.0.3) to future jobs
-        # This manual run is intended to generate JSON output for logic to conditionally warn or fail depending on environment
-        if: always() # Run tfsec even if prior job steps failed
-        env:
-          TFSEC_TAG: v1.28.14
-        run: |          
-          # Debug
-          pwd
-          ls -la
-          df -h
-          
-          # Download binary for tfsec tagged version pinned by variable
-          curl -sSL -o tfsec-linux-amd64 https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64
-          curl -sSL -o tfsec-linux-amd64.sig https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec-linux-amd64.D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE.sig
-          curl -sSL -o tfsec_checksums.txt https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_TAG/tfsec_checksums.txt
-          
-          # Verify SHA256 checksum
-          # grep 'tfsec-linux-amd64' tfsec_checksums.txt | sed 's| tfsec-linux-amd64| tfsec-linux-amd64|' | sha256sum -c -
-          grep tfsec-linux-amd64 tfsec_checksums.txt | sha256sum -c -
-
-          # Verify GPG Signature
-          gpg --keyserver keyserver.ubuntu.com --recv-keys D66B222A3EA4C25D5D1A097FC34ACEFB46EC39CE
-          gpg --verify tfsec-linux-amd64.sig tfsec-linux-amd64
-
-          # Move binary
-          chmod +x tfsec-linux-amd64
-          sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
-
-          # Run tfsec
-          tfsec ${{ env.TF_DIR }} --tfvars-file=${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars --format=lovely,json,csv --out=${{ env.TF_DIR }}/tfsec-report/results --soft-fail
-
-      - name: (tfsec) Ensure Vulnerability Report was Generated
+      - name: Ensure Trivy Report was Generated
         run: | # Due to requirement for conditionally failing, previous job will not fail pipeline from errors
-          if [[ ! -f "${TF_DIR}/tfsec-report/results.json" ]]; then
-            echo "::error:: tfsec scan report was not generated and cannot be processed. Blocking deployment to all environments."
+          if [[ ! -f "trivy_report.json" ]]; then
+            echo "::error:: trivy scan report was not generated and cannot be processed. Blocking deployment to all environments."
             exit 1
           fi
 
-      - name: (tfsec) Count Findings by Severity
+      - name: Count Trivy Findings by Severity
         id: trivy-count
         env:
-          TFSEC_REPORT: ${{ env.TF_DIR }}/tfsec-report/results.json
-        run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates          
-          LOW=$(jq '[.results[] | select(.severity=="LOW")] | length' $TFSEC_REPORT)
-          MEDIUM=$(jq '[.results[] | select(.severity=="MEDIUM")] | length' $TFSEC_REPORT)
-          HIGH=$(jq '[.results[] | select(.severity=="HIGH")] | length' $TFSEC_REPORT)
-          CRITICAL=$(jq '[.results[] | select(.severity=="CRITICAL")] | length' $TFSEC_REPORT)
+          TRIVY_REPORT: trivy_report.json
+        run: |
+          LOW=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="LOW")] | length' $TRIVY_REPORT)
+          MEDIUM=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="MEDIUM")] | length' $TRIVY_REPORT)
+          HIGH=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="HIGH")] | length' $TRIVY_REPORT)
+          CRITICAL=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="CRITICAL")] | length' $TRIVY_REPORT)
           TOTAL=$((LOW + MEDIUM + HIGH + CRITICAL))
 
           echo "low=$LOW" >> $GITHUB_OUTPUT
@@ -133,20 +67,27 @@ jobs:
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       
-      - name: (tfsec) Conditionally Warn Pipeline in Development or Test Environments
+      - name: Upload Trivy Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: reports/trivy
+      
+      - name: (trivy) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
         if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (steps.trivy-count.outputs.high > 0 || steps.trivy-count.outputs.critical > 0) }}
         run: |
           echo "::warning:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Deployment permitted to dev/test environment."
 
-      - name: (tfsec) Conditionally Fail Pipeline in Production Environment
+      - name: (trivy) Conditionally Fail Pipeline in Production Environment
         # High and/or Critical vulnerabilities will block deployment to production
         if: ${{ (inputs.env == 'prod') && (steps.trivy-count.outputs.high > 0 || steps.trivy-count.outputs.critical > 0) }}
         run: |
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by tfsec! Blocking production deployment."
           exit 1
       
-      - name: (tfsec) Conditionally Fail Pipeline in any Other Environments
+      - name: (trivy) Conditionally Fail Pipeline in any Other Environments
         # Creates a fail by default condition if any vulnerabilities are detected for environments not explicitly listed
         if: ${{ (inputs.env != 'dev' && inputs.env != 'tst' && inputs.env != 'prod') && (steps.trivy-count.outputs.total > 0) }}
         run: |
@@ -251,6 +192,13 @@ jobs:
         if: always() # required for artifact upload
         run: echo "TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_ENV
 
+      - name: Create Report Directories
+        if: always() # Needed if prior step fail to ensure vulnerability scans still run
+        run: |
+          mkdir ${{ env.TF_DIR }}/trivy-report
+          mkdir ${{ env.TF_DIR }}/tfsec-report
+          mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
+          
       - name: Upload Vulnerability Scan Reports
         uses: actions/upload-artifact@v4
         if: always() # upload artifacts even if some job steps fail
