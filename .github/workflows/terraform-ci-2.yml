@@ -95,7 +95,7 @@ jobs:
         env: 
           DIRECTORY: ${{ env.TF_DIR }}/trivy-reports
         run: |
-          trivy convert --format table --ouput $DIRECTORY/trivy-report-table.txt $DIRECTORY/trivy-report-json.json
+          trivy convert --exit-code 0 --format table --ouput $DIRECTORY/trivy-report-table.txt $DIRECTORY/trivy-report-json.json
 
       - name: Create Trivy CSV Report
         env:
