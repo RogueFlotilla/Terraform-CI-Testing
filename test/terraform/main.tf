@@ -9,16 +9,16 @@ provider "aws" {
 # ------------------ HIGH misconfiguration ------------------
 resource "aws_s3_bucket" "bad_bucket" {
   bucket = "tfsec-test-bucket"
-  acl    = "public-read"  # triggers misconfig
+  acl    = "public-read" # triggers misconfiguration scan
 }
 
 # ------------------ Fake secret ------------------
 variable "aws_secret_key" {
-  default = "FAKESECRET1234567890"  # triggers secret scan
+  default = "FAKESECRET1234567890" # triggers secret scan
 }
 
-# ------------------ Module with license info ------------------
-module "example_module" {
-  source  = "terraform-aws-modules/vpc/aws"
-  version = "4.0.0"
+# ------------------ Fake module to trigger license scan ------------------
+# Use a local module so we avoid network access issues
+module "fake_module" {
+  source = "./modules/fake_module"
 }
