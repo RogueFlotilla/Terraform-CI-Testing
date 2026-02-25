@@ -319,7 +319,7 @@ jobs:
             PASSED=$(jq '.summary.passed // 0' "$CHECKOV_REPORT")
             FAILED=$(jq '.summary.failed // 0' "$CHECKOV_REPORT")
 
-            {{
+            {
               echo "info="
               echo "low="
               echo "medium="
