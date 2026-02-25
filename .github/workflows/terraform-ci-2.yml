@@ -152,6 +152,7 @@ jobs:
       
       - name: Combine Trivy JSON reports
         run: |
+          set -euo pipefail
           jq -s 'reduce .[] as $item ({"Results":[]}; .Results += ($item.Results // []))' \
             "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/misconfigurations/trivy-report-config.json" \
             "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/secrets/trivy-report-secret.json" \
@@ -169,6 +170,8 @@ jobs:
         env:
           TRIVY_REPORT: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json"
         run: |
+          set -euo pipefail
+          
           LOW=$(jq '[.Results[]? | (.Misconfigurations[]? // empty), (.Secrets[]? // empty) | select(.Severity=="LOW")] | length' "$TRIVY_REPORT")
           MEDIUM=$(jq '[.Results[]? | (.Misconfigurations[]? // empty), (.Secrets[]? // empty) | select(.Severity=="MEDIUM")] | length' "$TRIVY_REPORT")
           HIGH=$(jq '[.Results[]? | (.Misconfigurations[]? // empty), (.Secrets[]? // empty) | select(.Severity=="HIGH")] | length' "$TRIVY_REPORT")
@@ -206,11 +209,12 @@ jobs:
       - name: Create Trivy CSV Report
         if: always() 
         run: |          
+          set -euo pipefail
           if [ -f "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" ]; then
-            jq -r '["Target/File Path","Start Line","End Line","class","Type","ID","Resource","Severity","Title","Description"],
+            jq -r '["Target/File Path","Start Line","End Line","Class","Type","ID","Resource/Category","Severity","Title","Description"],
             (.Results[]? as $results | $results.Target as $target | $results.Class as $class | (
                   ($results.Misconfigurations[]? | [$target, .CauseMetadata.StartLine, .CauseMetadata.EndLine, $class, .Type, .ID, .CauseMetadata.Resource, .Severity, .Title, .Description]),
-                  ($results.Secrets[]? | [$target, .StartLine, .EndLine, $class, "Secret", .RuleID, .Target, .Severity, .Title, .Match])
+                  ($results.Secrets[]? | [$target, .StartLine, .EndLine, $class, "Secret", .RuleID, .Category, .Severity, .Title, .Match])
                 )
             ) | @csv' "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" > \
               "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-csv.csv"
