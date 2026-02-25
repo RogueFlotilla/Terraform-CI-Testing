@@ -207,10 +207,10 @@ jobs:
         if: always() 
         run: |          
           if [ -f "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" ]; then
-            jq -r '["Target","Type","ID","Resource","Severity","Title","Description"],
-            (.Results[]? as $results | $results.Target as $target | (
-                  ($results.Misconfigurations[]? | [$target, .Type, .ID, .CauseMetadata.Resource, .Severity, .Title, .Description]),
-                  ($results.Secrets[]? | [$target, "Secret", .RuleID, .Target, .Severity, .Title, .Match])
+            jq -r '["Target/File Path","Start Line","End Line","class","Type","ID","Resource","Severity","Title","Description"],
+            (.Results[]? as $results | $results.Target as $target | $results.Class as $class (
+                  ($results.Misconfigurations[]? | [$target, .CauseMetadata.StartLine, .CauseMetadata.EndLine, $class, .Type, .ID, .CauseMetadata.Resource, .Severity, .Title, .Description]),
+                  ($results.Secrets[]? | [$target, .StartLine, .EndLine, $class, "Secret", .RuleID, .Target, .Severity, .Title, .Match])
                 )
             ) | @csv' "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" > \
               "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-csv.csv"
