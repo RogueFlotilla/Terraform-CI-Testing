@@ -21,7 +21,7 @@ env:
   TF_INPUT: false
   TF_IN_AUTOMATION: true
   TF_DIR: ${{ inputs.tf_dir }}
-  TF_VER: 1.9.0
+  TF_VER: 1.8.5
   AWS_REGION: us-east-1
   REPORT_RETENTION_DAYS: 1
 
