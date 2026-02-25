@@ -182,12 +182,14 @@ jobs:
           exit 1
       
       - name: Create Trivy Table Report
+        if: always() 
         run: |
           trivy convert --format table --exit-code 0 \
             --output ${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-table.txt \
             ${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json
 
       - name: Create Trivy CSV Report
+        if: always() 
         run: |          
           if [ -f "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" ]; then
             jq -r '["Target","Type","ID","Resource","Severity","Title","Description"],
