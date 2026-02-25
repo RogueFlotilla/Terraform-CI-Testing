@@ -31,6 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       timestamp: ${{ steps.set_timestamp.outputs.timestamp }}
+      report_retention_days: ${{ steps.set_retention_days.outputs.report_retention_days }}
     steps:
       - name: Set Timestamp
         id: set_timestamp
@@ -40,9 +41,9 @@ jobs:
         id: set_retention
         run: |
           if [ "${{ inputs.env }}" = "prod" ]; then
-            echo "report_retention_days=90" >> $GITHUB_ENV
+            echo "report_retention_days=90" >> $GITHUB_OUTPUT
           else
-            echo "report_retention_days=7" >> $GITHUB_ENV
+            echo "report_retention_days=7" >> $GITHUB_OUTPUT
           fi
 
   # aws-credentials-check:
