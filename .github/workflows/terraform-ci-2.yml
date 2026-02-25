@@ -202,13 +202,6 @@ jobs:
         run: |
           echo "::error:: HIGH and/or CRITICAL vulnerabilities detected by Trivy! Blocking deployment to unknown environment."
           exit 1
-      
-      - name: Create Trivy Table Report
-        if: always() 
-        run: |
-          trivy convert --format table --exit-code 0 \
-            --output ${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-table.txt \
-            ${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json
 
       - name: Create Trivy CSV Report
         if: always() 
