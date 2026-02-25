@@ -19,6 +19,6 @@ variable "aws_secret_key" {
 
 # ------------------ Module with license info ------------------
 module "example_module" {
-  source  = "github.com/aquasecurity/trivy-example-module"
-  version = "1.0.0"  # triggers license scan if module has license metadata
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "4.0.0"
 }
