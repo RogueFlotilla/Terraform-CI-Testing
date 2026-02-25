@@ -189,11 +189,11 @@ jobs:
       - name: Create Trivy CSV Report
         run: |
           if [ -f "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" ]; then
-            jq -r '["Target","Type","ID","Resource","Severity","Title"],
-              (.Results[]? |
-                (.Misconfigurations[]? | [.Target, "Config", .ID, .Resource, .Severity, .Title]),
-                (.Secrets[]? | [.Target, "Secret", .ID, .Resource, .Severity, .Title]),
-                (.Licenses[]? | [.Target, "License", .ID, .Resource, .Severity, .Title])
+            jq -r '["Target","Type","ID","Resource","Severity","Title","Description"],
+              (.Results[]? as $results|
+                (.Misconfigurations[]? | [$results.Target, .Type, .ID, .CauseMetadata.Resource, .Severity, .Title, .Description]),
+                (.Secrets[]? | [$results.Target, .Type, .ID, .Resource, .Severity, .Title, .Description]),
+                (.Licenses[]? | [$results.Target, .Type, .ID, .Resource, .Severity, .Title, .Description])
               ) | @csv' "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" > \
                 "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-csv.csv"
           fi
