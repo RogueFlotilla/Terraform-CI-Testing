@@ -120,20 +120,42 @@ jobs:
         uses: actions/checkout@v4
       
       - name: Create Report Directory
-        run: mkdir -p "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports"
+        run: |
+          mkdir -p "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/misconfigurations" \
+            "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/secrets"
 
-      - name: Run Trivy Scanner
+      - name: Run Trivy Scanner (Configuration)
         uses: aquasecurity/trivy-action@0.33.1
         with:
           scan-ref: "${{ github.workspace }}/${{ env.TF_DIR }}"
           scan-type: config
-          scanners: misconfig,secret
+          scanners: misconfig
           tf-vars: "${{ github.workspace }}/${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars"
           hide-progress: false
           format: json
-          output: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json"
+          output: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/misconfigurations/trivy-report-config.json"
           severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN' # limiting severity for fail excludes from report
           exit-code: 0
+        
+      - name: Run Trivy Scanner (Secrets)
+        uses: aquasecurity/trivy-action@0.33.1
+        with:
+          scan-ref: "${{ github.workspace }}/${{ env.TF_DIR }}"
+          scan-type: fs
+          scanners: secret
+          tf-vars: "${{ github.workspace }}/${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars"
+          hide-progress: false
+          format: json
+          output: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/secrets/trivy-report-secret.json"
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN' # limiting severity for fail excludes from report
+          exit-code: 0
+      
+      - name: Combine Trivy JSON reports
+        run: |
+          jq -s 'reduce .[] as $item ({"Results":[]}; .Results += ($item.Results // []))' \
+            "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/misconfigurations/trivy-report-config.json" \
+            "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/secrets/trivy-report-secret.json" \
+            > "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json"
       
       - name: Ensure Trivy Report was Generated
         run: | # Due to requirement for conditionally failing, previous job will not fail pipeline from errors
