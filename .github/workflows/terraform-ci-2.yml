@@ -14,6 +14,8 @@ on:
         required: false
       AWS_TARGET_ROLE_ARN:
         required: false
+      CHECKOV_API_KEY: # Verify Naming (if exists)
+        required: false
       GITLEAKS_LICENSE:
         required: false
 
@@ -211,7 +213,7 @@ jobs:
         if: always() # Ensure Checkov runs even if trivy fails
         continue-on-error: true
         with:
-          api-key: "" # Pull from secrets manager if available
+          api-key: "${{ secrets.CHECKOV_API_KEY }}"
           directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
           output_format: json
           output_file_path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports"
@@ -222,14 +224,14 @@ jobs:
         if: always() # Ensure Checkov runs even if trivy fails
         continue-on-error: true
         with:
-          api-key: "" # Pull from secrets manager if available
+          api-key: "${{ secrets.CHECKOV_API_KEY }}"
           directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
           output_format: csv # creates multiple CSV files
           output_file_path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/csv"
       
       - name: (checkov) Ensure Vulnerability Report was Generated
         run: | # Due requirement for conditionally failing, previous job will not fail pipeline from errors
-          if [[ ! -f "${GITHUB_WORKSPACE}/${TF_DIR}/checkov-reports/results.json" ]]; then
+          if [[ ! -f "${GITHUB_WORKSPACE}/${TF_DIR}/checkov-reports/results_json.json" ]]; then
             echo "::error:: Checkov scan report was not generated and cannot be processed. Blocking deployment to all environments."
             exit 1
           fi
@@ -237,7 +239,7 @@ jobs:
       - name: (Checkov) Count Findings by Severity
         id: checkov-count
         env:
-          CHECKOV_REPORT: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/results.json"
+          CHECKOV_REPORT: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/results_json.json"
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates                   
           #!/usr/bin/env bash
           set -euo pipefail
