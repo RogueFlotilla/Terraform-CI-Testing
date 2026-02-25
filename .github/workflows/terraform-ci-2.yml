@@ -14,42 +14,119 @@ on:
         required: false
       AWS_TARGET_ROLE_ARN:
         required: false
-      # GITLEAKS_LICENSE:
-      #   required: false
+      GITLEAKS_LICENSE:
+        required: false
 
 env:
   TF_INPUT: false
   TF_IN_AUTOMATION: true
   TF_DIR: ${{ inputs.tf_dir }}
+  TF_VER: 1.9.0
   AWS_REGION: us-east-1
+  REPORT_RETENTION_DAYS: 1
 
 jobs:
-  trivy:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      timestamp: ${{ steps.set_timestamp.outputs.timestamp }}
+    steps:
+      - name: Set Timestamp
+        id: set_timestamp
+        run: echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+  # aws-credentials-check:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Configure AWS Master(Mgmt) Credentials
+  #       uses: aws-actions/configure_aws_credentials@v5
+  #       with:
+  #         aws-region: ${{ env.AWS_REGION }}
+  #         role-to-assume: ${{ secrets.AWS_MANAGEMENT_ROLE_ARN }}
+  #         role-session-name: MgmtOIDC
+      
+  #     - name: Configure AWS Target(ENV) Credentials
+  #       uses: aws-actions/configure_aws_credentials@v5
+  #       with:
+  #         aws-region: ${{ env.AWS_REGION }}
+  #         role-to-assume: ${{ secrets.AWS_TARGET_ROLE_ARN }}
+  #         role-session-name: TargetOIDC
+  #         role-chaining: true
+      
+  #     - name: Verify Target Caller Identity
+  #       run: |
+  #         set -euo pipefail
+  #         aws sts get-caller-identity
+  
+  terraform-format:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
       
-      - name: Create Report Directory
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VER }}
+        
+      - name: Terraform Init
+        working-directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
+        run: terraform init -backend=false -input=false
+      
+      - name: Terraform Format
+        working-directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
         run: |
-          mkdir ${{ env.TF_DIR }}/trivy-reports
+          set -euo pipefail
+          terraform fmt -check -recursive
+
+  terraform-validate:
+    runs-on: ubuntu-latest
+    needs: terraform-format
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VER }}
+        
+      - name: Terraform Init
+        working-directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
+        run: terraform init -backend=false -input=false
+      
+      - name: Terraform Validate
+        working-directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
+        run: |
+          set -euo pipefail
+          terraform validate
+
+  trivy-scan:
+    runs-on: ubuntu-latest
+    needs: setup
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Create Report Directory
+        run: mkdir -p "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports"
 
       - name: Run Trivy Scanner
         uses: aquasecurity/trivy-action@0.33.1
         with:
-          scan-ref: ${{ env.TF_DIR }}
+          scan-ref: "${{ github.workspace }}/${{ env.TF_DIR }}"
           scan-type: config
           scanners: misconfig,secret,license
-          tf-vars: ${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars
+          tf-vars: "${{ github.workspace }}/${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars"
           hide-progress: false
           format: json
-          output: ${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json
+          output: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json"
           severity: 'CRITICAL,HIGH,MEDIUM,LOW,UNKNOWN' # limiting severity for fail excludes from report
           exit-code: 0
       
       - name: Ensure Trivy Report was Generated
         run: | # Due to requirement for conditionally failing, previous job will not fail pipeline from errors
-          if [[ ! -f "${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json" ]]; then
+          if [[ ! -f "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" ]]; then
             echo "::error:: trivy scan report was not generated and cannot be processed. Blocking deployment to all environments."
             exit 1
           fi
@@ -57,18 +134,20 @@ jobs:
       - name: Count Trivy Findings by Severity
         id: trivy-count
         env:
-          TRIVY_REPORT: ${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json
+          TRIVY_REPORT: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/trivy-report-json.json"
         run: |
-          LOW=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="LOW")] | length' $TRIVY_REPORT)
-          MEDIUM=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="MEDIUM")] | length' $TRIVY_REPORT)
-          HIGH=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="HIGH")] | length' $TRIVY_REPORT)
-          CRITICAL=$(jq '[.Results[]?.Misconfigurations[]? | select(.Severity=="CRITICAL")] | length' $TRIVY_REPORT)
-          TOTAL=$((LOW + MEDIUM + HIGH + CRITICAL))
+          LOW=$(jq '[.Results[]? | (.Misconfigurations[]? // empty), (.Secrets[]? // empty) | select(.Severity=="LOW")] | length' "$TRIVY_REPORT")
+          MEDIUM=$(jq '[.Results[]? | (.Misconfigurations[]? // empty), (.Secrets[]? // empty) | select(.Severity=="MEDIUM")] | length' "$TRIVY_REPORT")
+          HIGH=$(jq '[.Results[]? | (.Misconfigurations[]? // empty), (.Secrets[]? // empty) | select(.Severity=="HIGH")] | length' "$TRIVY_REPORT")
+          CRITICAL=$(jq '[.Results[]? | (.Misconfigurations[]? // empty), (.Secrets[]? // empty) | select(.Severity=="CRITICAL")] | length' "$TRIVY_REPORT")
+          UNKNOWN=$(jq '[.Results[]? | (.Misconfigurations[]? // empty), (.Secrets[]? // empty) | select(.Severity=="UNKNOWN")] | length' "$TRIVY_REPORT")
+          TOTAL=$((LOW + MEDIUM + HIGH + CRITICAL + UNKNOWN))
 
           echo "low=$LOW" >> $GITHUB_OUTPUT
           echo "medium=$MEDIUM" >> $GITHUB_OUTPUT
           echo "high=$HIGH" >> $GITHUB_OUTPUT
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+          echo "unknown=$UNKNOWN" >> $GITHUB_OUTPUT
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
       
       - name: Conditionally Warn Pipeline in Development or Test Environments
@@ -92,68 +171,65 @@ jobs:
           exit 1
       
       - name: Create Trivy Table Report
-        env: 
-          DIRECTORY: ${{ env.TF_DIR }}/trivy-reports
         run: |
-          trivy convert --format table --output $DIRECTORY/trivy-report-table.txt --exit-code 0 $DIRECTORY/trivy-report-json.json
+          trivy convert --format table --exit-code 0 \
+            --output ${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-table.txt \
+            ${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json
 
       - name: Create Trivy CSV Report
-        env:
-          DIRECTORY: ${{ env.TF_DIR }}/trivy-reports
         run: |
-          jq -r '
-            # Get all keys from first Misconfiguration (top-level fields only)
-            (.Results[]?.Misconfigurations[]? | keys_unsorted) as $keys |
-            # Print CSV header
-            ($keys | @csv),
-            # Print each row
-            (.Results[]?.Misconfigurations[]? | [ $keys[] as $k |
-                # Convert arrays to semicolon-separated strings, objects to JSON string
-                if .[$k] == null then ""
-                elif type == "object" then (.[ $k ] | @json)
-                elif type == "array" then (.[ $k ] | join("; "))
-                else .[$k] end
-              ] | @csv)
-          ' $DIRECTORY/trivy-report-json.json > $DIRECTORY/trivy-report-csv.csv
+          if [ -f "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" ]; then
+            jq -r '["Target","Type","ID","Resource","Severity","Title"],
+              (.Results[]? |
+                (.Misconfigurations[]? | [.Target, "Config", .ID, .Resource, .Severity, .Title]),
+                (.Secrets[]? | [.Target, "Secret", .ID, .Resource, .Severity, .Title]),
+                (.Licenses[]? | [.Target, "License", .ID, .Resource, .Severity, .Title])
+              ) | @csv' "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" > \
+                "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-csv.csv"
+          fi
 
       - name: Upload Trivy Report
-        if: always()
         uses: actions/upload-artifact@v4
+        if: always() # Upload artifact(s) even if some steps fail
         with:
-          name: trivy-reports
-          path: ${{ env.TF_DIR }}/trivy-reports/*
-          retention-days: 1
+          name: trivy-reports-${{ env.TIMESTAMP }}
+          path: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/*"
+          retention-days: ${{ env.REPORT_RETENTION_DAYS }}
 
-  checkov:
+  checkov-scan:
     runs-on: ubuntu-latest
+    needs: setup
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
       
-      - name: Pull Checkov GitHub Action Docker Container and Run for JSON
+      - name: Create Report Directory
+        run: mkdir -p "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/csv"
+      
+      - name: Pull Checkov GitHub Action and Run for JSON
         uses: bridgecrewio/checkov-action@v12
-        if: always() # Ensure Checkov runs even if tfsec fails
+        if: always() # Ensure Checkov runs even if trivy fails
         continue-on-error: true
         with:
           api-key: "" # Pull from secrets manager if available
-          directory: ${{ env.TF_DIR }}
+          directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
           output_format: json
-          output_file_path: ${{ env.TF_DIR }}/checkov-report
+          output_file_path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports"
       
       - name: Pull Checkov GitHub Action Docker Container and Run for CSV
       # Cannot output JSON and CSV at same time due to Checkov limitation with ',' for output_file_path for files vs directories
         uses: bridgecrewio/checkov-action@v12
-        if: always() # Ensure Checkov runs even if tfsec fails
+        if: always() # Ensure Checkov runs even if trivy fails
         continue-on-error: true
         with:
           api-key: "" # Pull from secrets manager if available
-          directory: ${{ env.TF_DIR }}
+          directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
           output_format: csv # creates multiple CSV files
-          output_file_path: ${{ env.TF_DIR }}/checkov-report/csv
+          output_file_path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/csv"
       
       - name: (checkov) Ensure Vulnerability Report was Generated
         run: | # Due requirement for conditionally failing, previous job will not fail pipeline from errors
-          if [[ ! -f "${TF_DIR}/checkov-report/results_json.json" ]]; then
+          if [[ ! -f "${GITHUB_WORKSPACE}/${TF_DIR}/checkov-reports/results.json" ]]; then
             echo "::error:: Checkov scan report was not generated and cannot be processed. Blocking deployment to all environments."
             exit 1
           fi
@@ -161,17 +237,17 @@ jobs:
       - name: (Checkov) Count Findings by Severity
         id: checkov-count
         env:
-          CHECKOV_REPORT: ${{ env.TF_DIR }}/checkov-report/results_json.json
+          CHECKOV_REPORT: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/results.json"
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates                   
           #!/usr/bin/env bash
           set -euo pipefail
 
           if jq -e '.[]? | .results.failed_checks[]? | select(.severity != null and .severity != "")' "$CHECKOV_REPORT" >/dev/null; then
 
-            INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")]   | length' "$CHECKOV_REPORT")
-            LOW=$(jq  '[.[] | .results.failed_checks[]? | select(.severity=="LOW")]    | length' "$CHECKOV_REPORT")
-            MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "$CHECKOV_REPORT")
-            HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")]   | length' "$CHECKOV_REPORT")
+            INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")]   | length' "${CHECKOV_REPORT}")
+            LOW=$(jq  '[.[] | .results.failed_checks[]? | select(.severity=="LOW")]    | length' "${CHECKOV_REPORT}")
+            MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "${CHECKOV_REPORT}")
+            HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")]   | length' "${CHECKOV_REPORT}")
             TOTAL=$((LOW + MEDIUM + HIGH))
 
             {
@@ -188,8 +264,8 @@ jobs:
             echo "::notice:: Checkov severity scoring not populated. Falling back to pass/fail."
             echo "::notice:: A Checkov API key was likely not provided."
 
-            PASSED=$(jq '[.[] | .summary.passed] | add' "$CHECKOV_REPORT")
-            FAILED=$(jq '[.[] | .summary.failed] | add' "$CHECKOV_REPORT")
+            PASSED=$(jq '[.[] | .summary.passed] | add' "${CHECKOV_REPORT}")
+            FAILED=$(jq '[.[] | .summary.failed] | add' "${CHECKOV_REPORT}")
 
             {
               echo "info="
@@ -221,28 +297,44 @@ jobs:
         run: |
           echo "::error:: Vulnerabilities or FAILED checks detected by Checkov! Blocking deployment to unknown environment."
           exit 1
-
-      # ---------- ARTIFACT UPLOAD ----------     
-      - name: Set Timestamp
-        if: always() # required for artifact upload
-        run: echo "TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_ENV
-
-      - name: Create Report Directories
-        if: always() # Needed if prior step fail to ensure vulnerability scans still run
-        run: |
-          mkdir ${{ env.TF_DIR }}/json-trivy-report
-          mkdir ${{ env.TF_DIR }}/tfsec-report
-          mkdir -p ${{ env.TF_DIR }}/checkov-report/csv
-          
-      - name: Upload Vulnerability Scan Reports
-        uses: actions/upload-artifact@v4
-        if: always() # upload artifacts even if some job steps fail
-        with:
-          name: ${{ env.TIMESTAMP }}-pipeline-vulnerability-scan-reports-${{ inputs.env }}
-          path: |
-            ${{ env.TF_DIR }}/json-trivy-report/*
-            ${{ env.TF_DIR }}/tfsec-report/*
-            ${{ env.TF_DIR }}/checkov-report/*
-          retention-days: 1
       
-      # -------------------------------------
+      - name: Upload Checkov Report
+        uses: actions/upload-artifact@v4
+        if: always() # Upload artifact(s) even if some steps fail
+        with:
+          name: checkov-reports-${{ env.TIMESTAMP }}
+          path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/*"
+          retention-days: ${{ env.REPORT_RETENTION_DAYS }}
+          
+  # terraform-init-backend:
+  #   runs-on: ubuntu-latest
+  #   needs: [aws-credentials-check, terraform-validate, trivy-scan, checkov-scan]
+  #   steps:
+  #     - name: Checkout Repository
+  #       uses: actions/checkout@v4
+      
+  #     - name: Setup Terraform
+  #       uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: ${{ env.TF_VER }}
+      
+  #     - name: Configure AWS Master(Mgmt) Credentials
+  #       uses: aws-actions/configure_aws_credentials@v5
+  #       with:
+  #         aws-region: us-east-1
+  #         role-to-assume: ${{ secrets.AWS_MANAGEMENT_ROLE_ARN }}
+  #         role-session-name: MgmtOIDC
+      
+  #     - name: Configure AWS Target(ENV) Credentials
+  #       uses: aws-actions/configure_aws_credentials@v5
+  #       with:
+  #         aws-region: us-east-1
+  #         role-to-assume: ${{ secrets.AWS_TARGET_ROLE_ARN }}
+  #         role-session-name: TargetOIDC
+  #         role-chaining: true
+      
+  #     - name: Terraform Init (Deploy)
+  #       run: |
+  #         set -euo pipefail
+  #         terraform -chdir="${GITHUB_WORKSPACE}/${TF_DIR}" init -input=false -reconfigure \
+  #           -backend-config="env/${{ inputs.env }}/${{ inputs.env }}.tfbackend"
