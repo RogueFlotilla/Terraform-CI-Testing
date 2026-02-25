@@ -10,7 +10,7 @@ on:
       tf_dir:
         description: "Terraform directory"
         required: true
-        default: test/redteamer
+        default: test/terraform
 
 jobs:
   call-terraform-ci:
