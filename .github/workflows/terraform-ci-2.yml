@@ -28,7 +28,7 @@ env:
   REPORT_RETENTION_DAYS: 1
 
 jobs:
-  setup:
+  set-timestamp:
     runs-on: ubuntu-latest
     outputs:
       timestamp: ${{ steps.set_timestamp.outputs.timestamp }}
@@ -105,7 +105,7 @@ jobs:
 
   trivy-scan:
     runs-on: ubuntu-latest
-    needs: [setup, terraform-validate]
+    needs: [set-timestamp, terraform-validate]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -202,13 +202,13 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() # Upload artifact(s) even if some steps fail
         with:
-          name: "trivy-reports-${{ needs.setup.outputs.timestamp }}"
+          name: "${{ needs.setup.outputs.timestamp }}-${{ inputs.env }}-trivy-reports"
           path: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/*"
           retention-days: ${{ env.REPORT_RETENTION_DAYS }}
 
   checkov-scan:
     runs-on: ubuntu-latest
-    needs: [setup, terraform-validate]
+    needs: [set-timestamp, terraform-validate]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -312,7 +312,7 @@ jobs:
               echo "pass="
               echo "fail="
             } >> "$GITHUB_OUTPUT"
-            
+
           else
             echo "::notice:: Checkov severity scoring not populated. Falling back to pass/fail."
             echo "::notice:: A Checkov API key was likely not provided."
@@ -355,7 +355,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() # Upload artifact(s) even if some steps fail
         with:
-          name: "checkov-reports-${{ needs.setup.outputs.timestamp }}"
+          name: "${{ needs.setup.outputs.timestamp }}-${{ inputs.env }}-checkov-reports"
           path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/*"
           retention-days: ${{ env.REPORT_RETENTION_DAYS }}
           
