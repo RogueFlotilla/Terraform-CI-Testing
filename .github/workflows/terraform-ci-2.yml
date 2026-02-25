@@ -23,7 +23,7 @@ env:
   TF_INPUT: false
   TF_IN_AUTOMATION: true
   TF_DIR: ${{ inputs.tf_dir }}
-  TF_VER: 1.8.5
+  TF_VER: 1.9.0
   AWS_REGION: us-east-1
 
 jobs:
@@ -43,7 +43,7 @@ jobs:
           if [ "${{ inputs.env }}" = "prod" ]; then
             echo "report_retention_days=90" >> $GITHUB_OUTPUT
           else
-            echo "report_retention_days=7" >> $GITHUB_OUTPUT
+            echo "report_retention_days=30" >> $GITHUB_OUTPUT
           fi
 
   # aws-credentials-check:
