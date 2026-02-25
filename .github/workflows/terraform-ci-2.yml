@@ -105,7 +105,7 @@ jobs:
 
   trivy-scan:
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, terraform-validate]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -200,7 +200,7 @@ jobs:
 
   checkov-scan:
     runs-on: ubuntu-latest
-    needs: setup
+    needs: [setup, terraform-validate]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -241,45 +241,67 @@ jobs:
         env:
           CHECKOV_REPORT: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/results_json.json"
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates                   
+          # #!/usr/bin/env bash
+          # set -euo pipefail
+
+          # if jq -e '.[]? | .results.failed_checks[]? | select(.severity != null and .severity != "")' "$CHECKOV_REPORT" >/dev/null; then
+
+          #   INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")]   | length' "${CHECKOV_REPORT}")
+          #   LOW=$(jq  '[.[] | .results.failed_checks[]? | select(.severity=="LOW")]    | length' "${CHECKOV_REPORT}")
+          #   MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "${CHECKOV_REPORT}")
+          #   HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")]   | length' "${CHECKOV_REPORT}")
+          #   TOTAL=$((LOW + MEDIUM + HIGH))
+
+          #   {
+          #     echo "info=$INFO"
+          #     echo "low=$LOW"
+          #     echo "medium=$MEDIUM"
+          #     echo "high=$HIGH"
+          #     echo "total=$TOTAL"
+          #     echo "pass="
+          #     echo "fail="
+          #   } >> "$GITHUB_OUTPUT"
+
+          # else
+          #   echo "::notice:: Checkov severity scoring not populated. Falling back to pass/fail."
+          #   echo "::notice:: A Checkov API key was likely not provided."
+
+          #   PASSED=$(jq '[.[] | .summary.passed] | add' "${CHECKOV_REPORT}")
+          #   FAILED=$(jq '[.[] | .summary.failed] | add' "${CHECKOV_REPORT}")
+
+          #   {
+          #     echo "info="
+          #     echo "low="
+          #     echo "medium="
+          #     echo "high="
+          #     echo "total="
+          #     echo "pass=$PASSED"
+          #     echo "fail=$FAILED"
+          #   } >> "$GITHUB_OUTPUT"
+          # fi
+
           #!/usr/bin/env bash
           set -euo pipefail
 
-          if jq -e '.[]? | .results.failed_checks[]? | select(.severity != null and .severity != "")' "$CHECKOV_REPORT" >/dev/null; then
-
-            INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")]   | length' "${CHECKOV_REPORT}")
-            LOW=$(jq  '[.[] | .results.failed_checks[]? | select(.severity=="LOW")]    | length' "${CHECKOV_REPORT}")
-            MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "${CHECKOV_REPORT}")
-            HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")]   | length' "${CHECKOV_REPORT}")
-            TOTAL=$((LOW + MEDIUM + HIGH))
-
-            {
-              echo "info=$INFO"
-              echo "low=$LOW"
-              echo "medium=$MEDIUM"
-              echo "high=$HIGH"
-              echo "total=$TOTAL"
-              echo "pass="
-              echo "fail="
-            } >> "$GITHUB_OUTPUT"
-
-          else
-            echo "::notice:: Checkov severity scoring not populated. Falling back to pass/fail."
-            echo "::notice:: A Checkov API key was likely not provided."
-
-            PASSED=$(jq '[.[] | .summary.passed] | add' "${CHECKOV_REPORT}")
-            FAILED=$(jq '[.[] | .summary.failed] | add' "${CHECKOV_REPORT}")
-
-            {
-              echo "info="
-              echo "low="
-              echo "medium="
-              echo "high="
-              echo "total="
-              echo "pass=$PASSED"
-              echo "fail=$FAILED"
-            } >> "$GITHUB_OUTPUT"
+          if [ ! -f "$CHECKOV_REPORT" ]; then
+            echo "::error:: Checkov report not found!"
+            exit 1
           fi
-      
+
+          # Check if JSON is an array of objects
+          if jq -e 'type=="array"' "$CHECKOV_REPORT" >/dev/null; then
+
+            # Check if there are any failed checks with severity
+            if jq -e '.[]? | .results.failed_checks[]? | select(.severity != null and .severity != "")' "$CHECKOV_REPORT" >/dev/null; then
+
+              INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")]   | length' "$CHECKOV_REPORT")
+              LOW=$(jq  '[.[] | .results.failed_checks[]? | select(.severity=="LOW")]    | length' "$CHECKOV_REPORT")
+              MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "$CHECKOV_REPORT")
+              HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")]   | length' "$CHECKOV_REPORT")
+              TOTAL=$((LOW + MEDIUM + HIGH))
+            fi
+          fi
+
       - name: (Checkov) Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
         if: ${{ (inputs.env == 'dev' || inputs.env == 'tst') && (steps.checkov-count.outputs.high > 0 || steps.checkov-count.outputs.fail > 0) }}
@@ -310,7 +332,7 @@ jobs:
           
   # terraform-init-backend:
   #   runs-on: ubuntu-latest
-  #   needs: [aws-credentials-check, terraform-validate, trivy-scan, checkov-scan]
+  #   needs: [aws-credentials-check, trivy-scan, checkov-scan]
   #   steps:
   #     - name: Checkout Repository
   #       uses: actions/checkout@v4
