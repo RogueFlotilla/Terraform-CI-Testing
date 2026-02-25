@@ -202,7 +202,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() # Upload artifact(s) even if some steps fail
         with:
-          name: "${{ needs.setup.outputs.timestamp }}-${{ inputs.env }}-trivy-reports"
+          name: "${{ needs.set-timestamp.outputs.timestamp }}-${{ inputs.env }}-trivy-reports"
           path: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/*"
           retention-days: ${{ env.REPORT_RETENTION_DAYS }}
 
@@ -355,7 +355,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() # Upload artifact(s) even if some steps fail
         with:
-          name: "${{ needs.setup.outputs.timestamp }}-${{ inputs.env }}-checkov-reports"
+          name: "${{ needs.set-timestamp.outputs.timestamp }}-${{ inputs.env }}-checkov-reports"
           path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/*"
           retention-days: ${{ env.REPORT_RETENTION_DAYS }}
           
