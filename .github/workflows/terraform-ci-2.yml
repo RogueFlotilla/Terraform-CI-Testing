@@ -187,23 +187,12 @@ jobs:
             ${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json
 
       - name: Create Trivy CSV Report
-        run: |
-          # if [ -f "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" ]; then
-          #   jq -r '["Target","Type","ID","Resource","Severity","Title","Description"],
-          #     (.Results[]? as $results|
-          #       (.Misconfigurations[]? | [$results.Target, .Type, .ID, .CauseMetadata.Resource, .Severity, .Title, .Description]),
-          #       (.Secrets[]? | [$results.Target, .Type, .ID, .Resource, .Severity, .Title, .Description]),
-          #       (.Licenses[]? | [$results.Target, .Type, .ID, .Resource, .Severity, .Title, .Description])
-          #     ) | @csv' "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" > \
-          #       "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-csv.csv"
-          # fi
-          
+        run: |          
           if [ -f "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" ]; then
             jq -r '["Target","Type","ID","Resource","Severity","Title","Description"],
             (.Results[]? as $results | $results.Target as $target | (
                   ($results.Misconfigurations[]? | [$target, .Type, .ID, .CauseMetadata.Resource, .Severity, .Title, .Description]),
-                  ($results.Secrets[]? | [$target, "Secret", .RuleID, .Target, .Severity, .Title, .Match]),
-                  ($results.Licenses[]? | [$target, "License", .Name, .PkgName, .Severity, .Name, .Category])
+                  ($results.Secrets[]? | [$target, "Secret", .RuleID, .Target, .Severity, .Title, .Match])
                 )
             ) | @csv' "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-json.json" > \
               "${GITHUB_WORKSPACE}/${TF_DIR}/trivy-reports/trivy-report-csv.csv"
@@ -260,45 +249,6 @@ jobs:
         env:
           CHECKOV_REPORT: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/results_json.json"
         run: | # Creates and exports variables that count numbers of vulnerabilities for conditional security gates                   
-          # #!/usr/bin/env bash
-          # set -euo pipefail
-
-          # if jq -e '.[]? | .results.failed_checks[]? | select(.severity != null and .severity != "")' "$CHECKOV_REPORT" >/dev/null; then
-
-          #   INFO=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="INFO")]   | length' "${CHECKOV_REPORT}")
-          #   LOW=$(jq  '[.[] | .results.failed_checks[]? | select(.severity=="LOW")]    | length' "${CHECKOV_REPORT}")
-          #   MEDIUM=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="MEDIUM")] | length' "${CHECKOV_REPORT}")
-          #   HIGH=$(jq '[.[] | .results.failed_checks[]? | select(.severity=="HIGH")]   | length' "${CHECKOV_REPORT}")
-          #   TOTAL=$((LOW + MEDIUM + HIGH))
-
-          #   {
-          #     echo "info=$INFO"
-          #     echo "low=$LOW"
-          #     echo "medium=$MEDIUM"
-          #     echo "high=$HIGH"
-          #     echo "total=$TOTAL"
-          #     echo "pass="
-          #     echo "fail="
-          #   } >> "$GITHUB_OUTPUT"
-
-          # else
-          #   echo "::notice:: Checkov severity scoring not populated. Falling back to pass/fail."
-          #   echo "::notice:: A Checkov API key was likely not provided."
-
-          #   PASSED=$(jq '[.[] | .summary.passed] | add' "${CHECKOV_REPORT}")
-          #   FAILED=$(jq '[.[] | .summary.failed] | add' "${CHECKOV_REPORT}")
-
-          #   {
-          #     echo "info="
-          #     echo "low="
-          #     echo "medium="
-          #     echo "high="
-          #     echo "total="
-          #     echo "pass=$PASSED"
-          #     echo "fail=$FAILED"
-          #   } >> "$GITHUB_OUTPUT"
-          # fi
-
           #!/usr/bin/env bash
           set -euo pipefail
 
