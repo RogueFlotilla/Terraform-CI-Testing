@@ -221,7 +221,7 @@ jobs:
         if: always() # Ensure Checkov runs even if trivy fails
         continue-on-error: true
         with:
-          api-key: "${{ secrets.CHECKOV_API_KEY }}"
+          api-key: "${{ secrets.CHECKOV_API_KEY || '' }}"
           directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
           output_format: json
           output_file_path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports"
@@ -232,7 +232,7 @@ jobs:
         if: always() # Ensure Checkov runs even if trivy fails
         continue-on-error: true
         with:
-          api-key: "${{ secrets.CHECKOV_API_KEY }}"
+          api-key: "${{ secrets.CHECKOV_API_KEY || '' }}"
           directory: "${{ github.workspace }}/${{ env.TF_DIR }}"
           output_format: csv # creates multiple CSV files
           output_file_path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/csv"
