@@ -312,6 +312,7 @@ jobs:
               echo "pass="
               echo "fail="
             } >> "$GITHUB_OUTPUT"
+            
           else
             echo "::notice:: Checkov severity scoring not populated. Falling back to pass/fail."
             echo "::notice:: A Checkov API key was likely not provided."
