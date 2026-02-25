@@ -13,8 +13,8 @@ resource "aws_s3_bucket" "bad_bucket" {
 }
 
 # ------------------ Fake secret ------------------
-variable "aws_secret_key" {
-  default = "FAKESECRET1234567890" # triggers secret scan
+variable "aws_access_key" {
+  default = "AKIAIOSFODNN7EXAMPLE"
 }
 
 # ------------------ Fake module to trigger license scan ------------------

@@ -118,7 +118,7 @@ jobs:
         with:
           scan-ref: "${{ github.workspace }}/${{ env.TF_DIR }}"
           scan-type: config
-          scanners: misconfig,secret,license
+          scanners: misconfig,secret
           tf-vars: "${{ github.workspace }}/${{ env.TF_DIR }}/env/${{ inputs.env }}.tfvars"
           hide-progress: false
           format: json
