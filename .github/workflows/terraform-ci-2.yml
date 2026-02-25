@@ -151,14 +151,6 @@ jobs:
           echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
           echo "unknown=$UNKNOWN" >> $GITHUB_OUTPUT
           echo "total=$TOTAL" >> $GITHUB_OUTPUT
-
-          echo "DEBUG"
-          echo "$LOW low(s)"
-          echo "$MEDIUM medium(s)"
-          echo "$HIGH high(s)"
-          echo "$CRITICAL critical(s)"
-          echo "$UNKNOWN unknown(s)"
-          echo "$TOTAL total"
       
       - name: Conditionally Warn Pipeline in Development or Test Environments
         # Intentionally declaring dev and test so any future environments fail by default
