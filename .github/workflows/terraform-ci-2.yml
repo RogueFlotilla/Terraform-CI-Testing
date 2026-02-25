@@ -25,10 +25,9 @@ env:
   TF_DIR: ${{ inputs.tf_dir }}
   TF_VER: 1.8.5
   AWS_REGION: us-east-1
-  REPORT_RETENTION_DAYS: 1
 
 jobs:
-  set-timestamp:
+  setup:
     runs-on: ubuntu-latest
     outputs:
       timestamp: ${{ steps.set_timestamp.outputs.timestamp }}
@@ -36,6 +35,15 @@ jobs:
       - name: Set Timestamp
         id: set_timestamp
         run: echo "timestamp=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: Set Report Retention
+        id: set_retention
+        run: |
+          if [ "${{ inputs.env }}" = "prod" ]; then
+            echo "report_retention_days=90" >> $GITHUB_ENV
+          else
+            echo "report_retention_days=7" >> $GITHUB_ENV
+          fi
 
   # aws-credentials-check:
   #   runs-on: ubuntu-latest
@@ -194,9 +202,9 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() # Upload artifact(s) even if some steps fail
         with:
-          name: "${{ needs.set-timestamp.outputs.timestamp }}-${{ inputs.env }}-trivy-reports"
+          name: "${{ needs.setup.outputs.timestamp }}-${{ inputs.env }}-trivy-reports"
           path: "${{ github.workspace }}/${{ env.TF_DIR }}/trivy-reports/*"
-          retention-days: ${{ env.REPORT_RETENTION_DAYS }}
+          retention-days: ${{ needs.setup.outputs.report_retention_days }}
 
   checkov-scan:
     runs-on: ubuntu-latest
@@ -308,9 +316,9 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always() # Upload artifact(s) even if some steps fail
         with:
-          name: "${{ needs.set-timestamp.outputs.timestamp }}-${{ inputs.env }}-checkov-reports"
+          name: "${{ needs.setup.outputs.timestamp }}-${{ inputs.env }}-checkov-reports"
           path: "${{ github.workspace }}/${{ env.TF_DIR }}/checkov-reports/*"
-          retention-days: ${{ env.REPORT_RETENTION_DAYS }}
+          retention-days: ${{ needs.setup.outputs.report_retention_days }}
           
   # terraform-init-backend:
   #   runs-on: ubuntu-latest
