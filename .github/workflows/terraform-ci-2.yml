@@ -50,14 +50,14 @@ jobs:
   #   runs-on: ubuntu-latest
   #   steps:
   #     - name: Configure AWS Master(Mgmt) Credentials
-  #       uses: aws-actions/configure_aws_credentials@v5
+  #       uses: aws-actions/configure-aws-credentials@v5 # v6 is now available
   #       with:
   #         aws-region: ${{ env.AWS_REGION }}
   #         role-to-assume: ${{ secrets.AWS_MANAGEMENT_ROLE_ARN }}
   #         role-session-name: MgmtOIDC
       
   #     - name: Configure AWS Target(ENV) Credentials
-  #       uses: aws-actions/configure_aws_credentials@v5
+  #       uses: aws-actions/configure-aws-credentials@v5 # v6 is now available
   #       with:
   #         aws-region: ${{ env.AWS_REGION }}
   #         role-to-assume: ${{ secrets.AWS_TARGET_ROLE_ARN }}
@@ -362,14 +362,14 @@ jobs:
   #         terraform_version: ${{ env.TF_VER }}
       
   #     - name: Configure AWS Master(Mgmt) Credentials
-  #       uses: aws-actions/configure_aws_credentials@v5
+  #       uses: aws-actions/configure-aws-credentials@v5
   #       with:
   #         aws-region: us-east-1
   #         role-to-assume: ${{ secrets.AWS_MANAGEMENT_ROLE_ARN }}
   #         role-session-name: MgmtOIDC
       
   #     - name: Configure AWS Target(ENV) Credentials
-  #       uses: aws-actions/configure_aws_credentials@v5
+  #       uses: aws-actions/configure-aws-credentials@v5
   #       with:
   #         aws-region: us-east-1
   #         role-to-assume: ${{ secrets.AWS_TARGET_ROLE_ARN }}
